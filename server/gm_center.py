@@ -72,7 +72,7 @@ def gate_status(*, built, completed, wave, sent_until=None, now=None):
 def gate_progress(state, required):
     """Separate the current assembled gate from the next build while a gate is prepared."""
     current_parts = len(state.get("parcalar") or [])
-    next_parts = len(state.get("sonraki") or []) if state.get("hazir") else 0
+    next_parts = len(state.get("sonraki") or [])
     required = int(required)
     return {
         "parts": current_parts,
