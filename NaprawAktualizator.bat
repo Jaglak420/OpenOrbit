@@ -15,7 +15,7 @@ set "TEMPFILE=%CD%\server\panel\guncelleme.py.new"
 set "BACKUP=%CD%\server\panel\guncelleme.py.before-jaglak"
 
 echo Pobieranie aktualizatora z Jaglak420/OpenOrbit...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $u='https://raw.githubusercontent.com/Jaglak420/OpenOrbit/main/server/panel/guncelleme.py'; Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile '%TEMPFILE%'; $c=Get-Content -Raw -LiteralPath '%TEMPFILE%'; if ($c -notmatch \"DEPO = 'Jaglak420/OpenOrbit'\") { throw 'Pobrany plik nie wskazuje na Jaglak420/OpenOrbit.' }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $u='https://raw.githubusercontent.com/Jaglak420/OpenOrbit/main/server/panel/guncelleme.py'; $f='%TEMPFILE%'; Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $f; $c=Get-Content -Raw -LiteralPath $f; if (-not $c.Contains('DEPO = ''Jaglak420/OpenOrbit''')) { throw 'Pobrany plik nie wskazuje na Jaglak420/OpenOrbit.' }"
 if errorlevel 1 (
   del "%TEMPFILE%" 2>nul
   echo Nie udalo sie pobrac lub zweryfikowac pliku.
