@@ -53,4 +53,25 @@ namespace UnityEngine
     public static class Mathf { public static float Clamp(float value, float min, float max) => Math.Max(min, Math.Min(value, max)); }
 }
 
-namespace BepInEx { }
+namespace BepInEx
+{
+    [AttributeUsage(AttributeTargets.Class)]
+    public sealed class BepInPluginAttribute : Attribute
+    {
+        public BepInPluginAttribute(string guid, string name, string version) { }
+    }
+    public sealed class StubLog
+    {
+        public void LogInfo(object message) { }
+        public void LogError(object message) { }
+    }
+}
+namespace BepInEx.Unity.IL2CPP
+{
+    public abstract class BasePlugin
+    {
+        public abstract void Load();
+        public BepInEx.StubLog Log { get; } = new BepInEx.StubLog();
+        protected T AddComponent<T>() where T : UnityEngine.MonoBehaviour => default;
+    }
+}
