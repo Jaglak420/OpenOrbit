@@ -61,7 +61,6 @@ class SymulacjaOffline:
         stary = self.menedzerowie.get(pid)
         if stary and stary[0] == sygnatura:
             return stary[1]
-        from . import botlar as _unused  # tylko upewnij się, że moduł panelu jest już załadowany
         manager = Yonetici(pakiet, self.boty.durum_yolu(pid), self.log, now=now, offline=True)
         self.menedzerowie[pid] = (self._sygnatura(pid), manager)
         return manager
@@ -110,12 +109,14 @@ class SymulacjaOffline:
                     # Pakiet edytowany podczas symulacji zostanie odczytany ponownie pod wspólną blokadą.
                     with self.boty._KILIT:
                         pakiet = self.boty.oku(pid)
+                        meta = self._czytaj_meta(pid)
                         if not pakiet.get('dunya') or pakiet.get('kip') == 'basit':
+                            meta.update(last_wall=now, used_seconds=0.0, paused=False)
+                            self._zapisz_meta(pid, meta)
                             continue
                         a = pakiet.get('ayarlar') or {}
                         limit_h = max(0, min(150, int(a.get('telafi_saat', 150) or 0)))
                         tempo = max(0.0, min(1.0, float(a.get('telafi_oran', 0.35))))
-                        meta = self._czytaj_meta(pid)
                         last = float(meta.get('last_wall') or now)
                         used = max(0.0, float(meta.get('used_seconds') or 0.0))
                         if limit_h <= 0 or used >= limit_h * 3600 or tempo <= 0:
