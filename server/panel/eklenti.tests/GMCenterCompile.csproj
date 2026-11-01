@@ -8,7 +8,8 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../eklenti/GMCenter.cs" />
+    <Compile Include="../eklenti/gmcenter/GMCenterOverlay.cs" />
+    <Compile Include="../eklenti/gmcenter/GMCenterPlugin.cs" />
     <Compile Include="UnityStubs.cs" />
   </ItemGroup>
 </Project>
