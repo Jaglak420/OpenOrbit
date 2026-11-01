@@ -483,10 +483,11 @@ def gm_admin(game):
     return s
 
 
-def gm_bootstrap(game):
-    # The caller must already authenticate with X-Anahtar; no channel secret is returned.
+def gm_bootstrap(game, anahtar):
+    # This endpoint is reachable only on 127.0.0.1. It returns the per-run token
+    # only after confirming that the host has explicitly enabled the GM console.
     gm_admin(game)
-    return {'enabled': True, 'port': PORT}
+    return {'enabled': True, 'port': PORT, 'token': anahtar}
 
 
 def gm_players(game):
@@ -603,7 +604,10 @@ def start(game, folder, log=print):
             u = urlparse(self.path)
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             if u.path == '/gm/bootstrap':
-                return self._isle(lambda: gm_bootstrap(game, anahtar))
+                try:
+                    return self._yanit(200, gm_bootstrap(game, anahtar))
+                except Hata as e:
+                    return self._yanit(e.kod, {'hata': str(e)})
             if u.path == '/gm/players':
                 return self._isle(lambda: gm_players(game))
             if u.path == '/gm/online':
