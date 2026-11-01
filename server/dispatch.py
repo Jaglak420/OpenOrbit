@@ -258,9 +258,10 @@ class Dispatch:
         key = KAPI.BY_ID.get(f.get('gateId'))
         if not key or key not in self.gate_keys() or key in self.st['kapilar']:
             return [('DispatchMessageCommand', {'messageType': ERROR_NO_GATE})]
-        if not self.k.built(key) or self.k.gate(key)['dalga'] != 0:          # kurulu ve 1. dalgada (forum 160334)
+        G = self.k.gate(key)
+        if G['dalga'] != 0:                                      # başlamış kapı Dispatch'e gönderilemez
             return [('DispatchMessageCommand', {'messageType': ERROR_NO_GATE})]
-        if not self.k.gate(key).get('tamam', 0):                                 # en az bir kez elle tamamlanmış
+        if not G.get('tamam', 0):                                # en az bir kez elle tamamlanmış
             return [('DispatchMessageCommand', {'messageType': ERROR_INCOMPLETE_GATE})]
         cost = {D['kapi']['ggeu']: 1}
         miss = INV.missing(self.p, cost)
