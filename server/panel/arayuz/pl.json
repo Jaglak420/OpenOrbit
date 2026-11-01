@@ -1926,7 +1926,7 @@
   "Haritaya tıkla: türün sabit doğma noktası (uzaylılar burada belirir).": "Kliknij mapę: stały punkt pojawiania się typu (tu pojawiają się obcy).",
   "Haritaya uzaylı ekle": "Dodaj obcego do mapy",
   "Haritayı standarda döndür": "Przywróć mapie standard",
-  "Hasar": "Obrażenia",
+  "Hasar": "Zadający obrażenia",
   "Hasar al": "Otrzymaj obrażenia",
   "Hasar ver": "Zadaj obrażenia",
   "Hedefler": "Cele",
@@ -2887,5 +2887,9 @@
   "Çevrimdışı simülasyon": "Symulacja offline",
   "{1} saatin {0} saati kullanıldı": "Wykorzystano {0} z {1} godzin",
   "Simülasyon kapalı": "Symulacja wyłączona",
-  "Ara başına en çok {0} saat": "Do {0} godz. na jedną przerwę"
+  "Ara başına en çok {0} saat": "Do {0} godz. na jedną przerwę",
+  "Tank": "Obrońca",
+  "Destek": "Wsparcie",
+  "Keşif": "Zwiadowca",
+  "Dengeli": "Zrównoważony"
 }
