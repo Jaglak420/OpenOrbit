@@ -68,6 +68,55 @@ jobs:
           else:
               raise AssertionError("A mismatched friend identity must never load another profile")
           PY
+
+      - name: Exercise bot account equipment upgrades
+        env:
+          PYTHONPATH: server
+        run: |
+          python - <<'PY'
+          import random
+          from bot import katalog as K
+          from bot.durum import Bot
+          from bot.kisilik import kisilik_uret
+          from bot.hedefler import alisveris as ALIS
+
+          best_laser = max(K.lazerler(), key=K.lazerler().get)
+
+          def make_bot(no, name, credits, uridium, drones, laser_count):
+              return Bot({
+                  "no": no, "ad": name, "firma": 1,
+                  "kisilik": kisilik_uret(random.Random(no), arketip="kasici"),
+                  "seviye": 20, "ep": 0, "kredi": credits, "uridyum": uridium, "onur": 1000,
+                  "ekip": {
+                      "gemi": "ship_phoenix", "lazer": {best_laser: laser_count}, "kalkan": {}, "hiz": {},
+                      "dron": drones, "cephane": K.CEPHANE[0],
+                  },
+              })
+
+          pilot = make_bot(991, "UpgradeTest", 5000000, 1000000,
+                           {"drone_flax": 7, "drone_iris": 1}, 40)
+          starting_uridium = pilot.k["uridyum"]
+          for _ in range(7):
+              pilot._adaylar = None
+              upgrades = [c for c in ALIS.adaylar(pilot)
+                          if c[3] == "drone_iris" and len(c) > 4 and c[4] == "drone_flax"]
+              assert upgrades, "A full hangar must offer Iris-for-Flax replacement"
+              assert ALIS.satin_al(pilot, upgrades[0]), "The bot should be able to buy the Iris upgrade"
+          assert pilot.k["ekip"]["dron"].get("drone_iris") == 8
+          assert pilot.k["ekip"]["dron"].get("drone_flax", 0) == 0
+          assert sum(pilot.k["ekip"]["dron"].values()) == K.ESYA["dron_azami"]
+          assert pilot.k["uridyum"] < starting_uridium
+          pilot._adaylar = None
+          assert not any(c[3] == "drone_flax" and len(c) > 4 and c[4] == "drone_iris"
+                         for c in ALIS.adaylar(pilot)), "A higher-tier drone must never be downgraded"
+
+          credit_pilot = make_bot(992, "CreditUpgradeTest", 500000, 0, {}, 1)
+          starting_credits = credit_pilot.k["kredi"]
+          credit_pilot._adaylar = None
+          flax = next(c for c in ALIS.adaylar(credit_pilot) if c[3] == "drone_flax")
+          assert ALIS.satin_al(credit_pilot, flax)
+          assert credit_pilot.k["kredi"] < starting_credits
+          PY
       - name: Validate panel JavaScript
         run: |
           node --check server/panel/arayuz/panel.js
