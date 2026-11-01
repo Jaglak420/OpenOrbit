@@ -531,8 +531,10 @@ class Yonetici(SohbetMotoru):
                     continue
                 if oran > 1.6 + a.o('risk') + a.ruh['ofke']:
                     continue
-                sonuc = S.karsilasma(a, hedef, self, now, wsparcie_a=min(3, len(dost_a)),
-                                     wsparcie_b=min(3, len(dost_b)))
+                rol_puani = {'tank': 1.0, 'dps': 1.15, 'destek': 1.2, 'kesif': 0.8, 'denge': 1.0}
+                guc_a = min(3.0, sum(rol_puani.get(KS.rol(x.k['kisilik']), 1.0) for x in dost_a))
+                guc_b = min(3.0, sum(rol_puani.get(KS.rol(x.k['kisilik']), 1.0) for x in dost_b))
+                sonuc = S.karsilasma(a, hedef, self, now, wsparcie_a=guc_a, wsparcie_b=guc_b)
                 if sonuc and sonuc[0] == 'kazandi':
                     zwyciezca = sonuc[1]
                     ekipa = dost_a if zwyciezca is a else dost_b
