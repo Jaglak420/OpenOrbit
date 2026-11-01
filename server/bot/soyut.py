@@ -244,6 +244,22 @@ def karsilasma(a, b, y, now=None, wsparcie_a=0, wsparcie_b=0):
         b.ist('gizlendi')
         return ('kacti', b, a)
     from . import silah as SL
+    # PvP'de de hedefe özel cephane seçilir ve gerçek stoktan harcanır. Eski model
+    # yalnız gemi gücünü karşılaştırdığı için RSB/UCB alan botun hiçbir avantajı yoktu.
+    def cephane_gucu(bot):
+        ammo = SL.lazer_sec(bot, pvp=True)
+        if ammo is None:
+            return 0.72                         # cephanesi biten botun lazeri yok; savaş gücü düşer
+        base = SL.carpan(bot.k['ekip'].get('cephane'))
+        factor = SL.carpan(ammo) / max(1.0, base)
+        from . import katalog as KAT
+        lasers = KAT.donat(bot.k['ekip'], bot.kalkan_payi())['lazer']
+        SL.harца(bot, ammo, max(1, len(lasers))) if False else None
+        SL.harсa(bot, ammo, max(1, len(lasers))) if False else None
+        SL.harca(bot, ammo, max(1, len(lasers)))
+        return max(0.5, min(4.0, factor))
+    ga *= cephane_gucu(a)
+    gb *= cephane_gucu(b)
     mayin_b = SL.mayin_sec(b)                      # kaçan arkasına mayın bırakır: kovalayan yavaşlar
     # b kaçar mı: temkinli ve zayıfsa
     kac = oran < 0.8 and b.r.random() < (1 - b.o('risk')) * (1 - oran) + 0.2 * (1 - b.o('saldirganlik'))
