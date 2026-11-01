@@ -10,15 +10,15 @@ uzaylıları, kutuları ve cevherleri paylaşır, birbirini görür (ortak_harit
 Hesap gönderimi: misafirin paneli oyuna girmeden kaydını oyun portundan HTTP ile gönderir (game.handle ilk baytlar "GET "/"POST"
 ise buraya verir; oyun istemcisinin ilk paketi uzunlukla başlar).
   GET  /misafir/bilgi                     sunucunun adı, pilotu, oyuncular, şifre gerekli mi, yer var mı
-  POST /misafir/giris {surum, sifre, anahtar, adres, profil}  -> {oturum, uid, surum, sohbet}
-       Kayıt sunucunun belleğinde tutulur, diske yazılmaz: sunucunun Kayıtlar sayfasında görünmez. Oyuncu kimliği sunucuda benzersiz
-       olsun diye geçici bir kimlikle değişir (kayıtların çoğu tohumun aynı kimliğiyle başlar), geri verilirken eskisine döner
-       (kimlik alanlarında: kimlik_cevir). Aynı anahtarla yeniden giriş (bağlantı koptu, panel yeniden açıldı) oturumu ve
-       sunucudaki son hâli sürdürür. adres: misafirin bu sunucuya bağlandığı adres (sohbetin adresi oradan).
+  POST /misafir/giris {surum, sifre, anahtar, kayit_kimligi, adres, profil} -> {oturum, uid, surum, profil}
+       kayit_kimligi yerel yuva için kararlı belirteçtir. Sunucu SHA-256 özetiyle save/kayitlar/arkadas_<hash> altında ana profili
+       profil.json'a yazar; kayıt ana makinede kalıcı ve otoriterdir. Önceden kayıt varsa istemcinin gönderdiği eski profil
+       kullanılmaz; host'taki sürüm oyuna verilir. Misafir UID'si sunucuda geçici olarak çevrilir, dosyaya özgün kimliği yazılır.
+       Her autosave atomik yazılır; en çok 10 dakikada bir yedek alınır. Aynı kayıt aynı anda iki oturumda açılamaz.
   GET  /misafir/profil?oturum=&anahtar=&surum=N&bekle=25
-       uzun yoklama: kayıt N'den yeni bir sürüme gelince (oyun değişince 10 sn'de bir kaydeder; MisafirProfil.save) ya da süre
-       dolunca -> {surum, bagli, bitti, profil (yeniyse)}. Misafirin paneli her yeni sürümü kendi kayıt yuvasına yazar.
-  POST /misafir/cikis {oturum, anahtar}   -> son hâl; oturum biter (oyun açıksa bağlantı kapanır), kayıt kısa süre sonra silinir
+       uzun yoklama: yeni profil sürümünü istemciye verir; istemci yerel kopyasını eşitler. Ana kayıt host diski üzerinde kalır.
+  POST /misafir/cikis {oturum, anahtar} -> son profil kaydedilir ve oturum biter; kalıcı profil sunucuda tutulur.
+  GET  /yonetim/zapisy?anahtar=       yalnız loopback + panel anahtarı: düzenleme kilidi için açık arkadaş kayıtlarını listeler.
 Gövdeler JSON; "Content-Encoding: gzip" ile sıkıştırılmış da olabilir, "Accept-Encoding: gzip" isteyene yanıt sıkıştırılır.
 Yönetim (yalnız 127.0.0.1'den, panelin anahtarıyla): POST /yonetim/at {anahtar, oturum}: misafiri çıkar.
 İstemci girişte (LoginRequest) web girişinin verdiği sessionID'yi gönderir: misafirinki oturum anahtarı (bul), sunucunun kendi
@@ -34,13 +34,13 @@ açılır, misafir kabul etmez (DO_COK_OYUNCULU misafir: false, adres 127.0.0.1)
   POST /yerel/cikar {anahtar, oturum}     -> bağlıysa oyun bağlantısı kapanır, son hâl yazılır, yuva bırakılır
   GET  /yerel/oturum?oturum=              -> {uid, yol, kayit}: web.py ek istemcinin girişini bununla verir
 """
-import collections, gzip, hmac, json, os, random, re, secrets, socket, threading, time, zlib
+import collections, gzip, hashlib, hmac, json, os, random, re, secrets, shutil, socket, threading, time, zlib
 from urllib.parse import parse_qs, urlparse
 
 import profil as PF
 import yollar as YOL
 
-PROTOKOL = 1                    # hesap gönderiminin sürümü: misafirin paneliyle aynı olmalı
+PROTOKOL = 2                    # kalıcı arkadaş kaydı ve ana makine-authoritative eşitleme
 UID_ALT, UID_UST = 2000000000, 2100000000     # misafirlerin sunucudaki geçici kimlikleri (int32; kayıt kimlikleriyle karışmaz)
 GOVDE_SINIR = 8 * 1024 * 1024   # hesap gönderimi (kayıtlar ~0,4 MB); şifreden önce okunur
 DENEME_SINIR, KILIT_SN = 5, 60  # adres başına yanlış şifre: bu kadar denemeden sonra bu kadar saniye kilit
@@ -55,6 +55,7 @@ YEREL_EN_COK = 16               # sunucunun sınırı (panelin kendi sınırı d
 
 AYAR = {'acik': False, 'sifre': '', 'en_cok': 4, 'anahtar': None, 'kod': '', 'adres': '0.0.0.0', 'yerel': '', 'misafir': True}
 COND = threading.Condition()
+FRIEND_LOCK = threading.RLock()   # kalıcı arkadaş kayıtları ve yedekleri
 MISAFIRLER = {}                 # oturum anahtarı -> Misafir
 YERELLER = {}                   # oturum anahtarı -> Yerel (çoklu istemcinin ek oyuncuları)
 HATALI = {}                     # adres -> [yanlış şifre sayısı, kilidin bitişi]
@@ -111,7 +112,7 @@ def kimlik_cevir(x, eski, yeni):
 
 
 class MisafirProfil(PF.Profil):
-    """Misafirin kaydı: dosya yerine bellekte; her kayıt (oyunun 10 sn'lik kaydı) yeni bir sürüm yayımlar (uzun yoklamaya)."""
+    """Misafir profili RAM'de çalışır; her autosave ana host profiline atomik yazılır ve uzun yoklamaya yayımlanır."""
 
     def __init__(self, tohum, d, misafir):
         self.misafir = misafir
@@ -130,13 +131,20 @@ class MisafirProfil(PF.Profil):
                         raise
                     time.sleep(0.01)
             self.dirty = False
+        try:
+            self.misafir.zapisla(text)             # host kopyası her autosave'de atomik güncellenir
+        except (OSError, ValueError, TypeError) as e:
+            log('arkadaş kaydı kalıcı yazılamadı (%s): %r' % (self.misafir.friend_slot, e))
+            with self.lock:
+                self.dirty = True                  # sonraki autosave disk yazımını yeniden dener
         self.misafir.yayimla(text)
 
 
 class Misafir:
-    def __init__(self, oturum, anahtar, uid, asil_uid, adres, ip):
+    def __init__(self, oturum, anahtar, uid, asil_uid, adres, ip, friend_slot, friend_hash):
         self.oturum, self.anahtar, self.uid, self.asil_uid = oturum, anahtar, uid, asil_uid
         self.adres, self.ip = adres, ip
+        self.friend_slot, self.friend_hash = friend_slot, friend_hash
         self.profil = None
         self.metin = None             # son yayımlanan kaydın JSON'u (sunucudaki kimlikle)
         self.surum = 0
@@ -157,11 +165,17 @@ class Misafir:
         kimlik_cevir(d, self.uid, self.asil_uid)
         return d
 
+    def zapisla(self, text):
+        """Sunucudaki ana kopyayı asıl oyuncu kimliğiyle kaydeder."""
+        d = json.loads(text)
+        kimlik_cevir(d, self.uid, self.asil_uid)
+        _friend_save(self.friend_slot, self.friend_hash, d)
+
     def ozet(self):
         p = self.profil.d if self.profil else {}
         pl = p.get('pilot') or {}
         return {'oturum': self.oturum[:8], 'ad': pl.get('userName', '?'), 'seviye': pl.get('level', 1), 'ip': self.ip,
-                'bagli': self.session is not None, 'giris': int(self.giris)}
+                'bagli': self.session is not None, 'giris': int(self.giris), 'kayit_id': self.friend_slot}
 
 
 def _yeni_uid(dolu):
@@ -185,8 +199,115 @@ def gecerli_profil(d):
     return None
 
 
+
+def _friend_slot(kimlik):
+    """Kalıcı istemci kimliğini güvenli, sabit kayıt yuvasına dönüştür."""
+    key = str(kimlik or '')
+    if not re.fullmatch(r'[A-Za-z0-9_-]{32,128}', key):
+        raise ValueError('Kalıcı kayıt kimliği eksik ya da geçersiz.')
+    digest = hashlib.sha256(key.encode('ascii')).hexdigest()
+    return 'arkadas_' + digest[:24], digest
+
+
+def _friend_paths(slot):
+    root = os.path.join(YOL.KAYITLAR, slot)
+    return root, os.path.join(root, 'profil.json'), os.path.join(root, 'kayit.json'), os.path.join(root, 'yedek')
+
+
+def _friend_atomic_json(path, value):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + '.tmp'
+    with open(tmp, 'w', encoding='utf8', newline='\n') as fh:
+        json.dump(value, fh, ensure_ascii=False, indent=1)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def _friend_load(slot, digest):
+    root, profile_path, meta_path, backup_dir = _friend_paths(slot)
+    if not os.path.isdir(root):
+        return None
+    if not os.path.isfile(profile_path):
+        # İlk yazım güç kesintisiyle yarıda kaldıysa yalnız boş yedek klasörünü yeniden başlat.
+        try:
+            entries = os.listdir(root)
+            backup_files = os.listdir(backup_dir) if os.path.isdir(backup_dir) else []
+        except OSError:
+            entries, backup_files = ['unknown'], ['unknown']
+        if set(entries) <= {'yedek'} and not backup_files:
+            return None
+        raise ValueError('Sunucudaki arkadaş kaydı eksik; mevcut yedekler korunuyor.')
+    try:
+        with open(meta_path, encoding='utf8') as fh:
+            meta = json.load(fh)
+        if not meta.get('arkadas_profil') or meta.get('arkadas_id_hash') != digest:
+            raise ValueError('Bu kayıt kimliği başka bir yuvayla çakışıyor; mevcut kayıt korunuyor.')
+        with open(profile_path, encoding='utf8') as fh:
+            profile = json.load(fh)
+    except (OSError, ValueError) as e:
+        raise ValueError('Sunucudaki arkadaş kaydı okunamadı: %s' % e)
+    err = gecerli_profil(profile)
+    if err:
+        raise ValueError('Sunucudaki arkadaş kaydı bozuk (%s); yedeklerden geri yükleyin.' % err)
+    return profile
+
+
+def _friend_save(slot, digest, profile):
+    """Asıl pilot kimliğiyle ana kaydı atomik yazar; en çok 10 dakikada bir otomatik yedek alır."""
+    err = gecerli_profil(profile)
+    if err:
+        raise ValueError('Arkadaş kaydı yazılamadı: %s' % err)
+    root, profile_path, meta_path, backup_dir = _friend_paths(slot)
+    now = time.time()
+    with FRIEND_LOCK:
+        os.makedirs(backup_dir, exist_ok=True)
+        if os.path.isfile(profile_path):
+            try:
+                with open(meta_path, encoding='utf8') as fh:
+                    meta = json.load(fh)
+            except (OSError, ValueError) as e:
+                raise ValueError('Arkadaş kaydının metaverisi okunamadı: %s' % e)
+            if not meta.get('arkadas_profil') or meta.get('arkadas_id_hash') != digest:
+                raise ValueError('Arkadaş kayıt kimliği eşleşmiyor; mevcut kayıt korunuyor.')
+            last_backup = float(meta.get('arkadas_yedek_zamani') or 0)
+            if now - last_backup >= 600:
+                stamp = time.strftime('%Y%m%d_%H%M%S')
+                name, index = 'oto_%s.json' % stamp, 2
+                while os.path.exists(os.path.join(backup_dir, name)):
+                    name, index = 'oto_%s_%d.json' % (stamp, index), index + 1
+                shutil.copy2(profile_path, os.path.join(backup_dir, name))
+                old = sorted((f for f in os.listdir(backup_dir)
+                              if re.fullmatch(r'oto_\d{8}_\d{6}(_\d+)?\.json', f)), reverse=True)
+                for f in old[20:]:
+                    try:
+                        os.remove(os.path.join(backup_dir, f))
+                    except OSError:
+                        pass
+                meta['arkadas_yedek_zamani'] = now
+        else:
+            if os.path.isdir(root) and any(name != 'yedek' for name in os.listdir(root)):
+                raise ValueError('Katalog zapisu jest już zajęty; zapis nie został nadpisany.')
+            meta = {'arkadas_profil': True, 'arkadas_id_hash': digest,
+                    'olusturma': time.strftime('%Y-%m-%d %H:%M:%S'), 'arkadas_yedek_zamani': now}
+        pilot = profile.get('pilot') or {}
+        meta.update(arkadas_profil=True, arkadas_id_hash=digest,
+                    ad=str(pilot.get('userName') or 'Znajomy')[:60],
+                    son_oynama=time.strftime('%Y-%m-%d %H:%M:%S'),
+                    son_serwerowy_zapis=now)
+        _friend_atomic_json(profile_path, profile)
+        _friend_atomic_json(meta_path, meta)
+
+
+def aktif_kayitlar_znajomych():
+    """Kalıcı profillerin aktif oyun oturumları: panelin edit kilidi için."""
+    with COND:
+        return sorted({m.friend_slot for m in MISAFIRLER.values() if not m.bitti and m.friend_slot})
+
+
+
 def giris(body, ip, tohum, sunucu_uid, ana=None):
-    """POST /misafir/giris -> (durum kodu, yanıt). ana: sunucunun kendi profili (adı başka oyuncuyla aynı olamaz)."""
+    """Host kaydı varsa onu yükler; gelen eski profil ana kopyayı ezemez."""
     if int(body.get('surum') or 0) != PROTOKOL:
         return 409, {'hata': 'surum', 'mesaj': 'Hesap gönderiminin sürümü farklı (sunucu %d): ikiniz de paneli güncelleyin.' % PROTOKOL}
     if AYAR['sifre']:
@@ -207,35 +328,68 @@ def giris(body, ip, tohum, sunucu_uid, ana=None):
             HATALI.pop(ip, None)
     anahtar = str(body.get('anahtar') or '')
     if len(anahtar) < 16:
-        return 400, {'hata': 'anahtar', 'mesaj': 'Misafir anahtarı eksik.'}
-    with COND:
-        eski = next((m for m in MISAFIRLER.values() if esit(m.anahtar, anahtar) and not m.bitti), None)
-        if eski:                                  # yeniden giriş: sunucudaki son hâl sürer
-            eski.son, eski.ip = time.time(), ip
-            eski.adres = str(body.get('adres') or eski.adres)
-            log('misafir yeniden geldi: %s (%s)' % (eski.ozet()['ad'], ip))
-            return 200, {'oturum': eski.oturum, 'uid': eski.uid, 'surum': eski.surum, 'devam': True}
-        if sum(1 for m in MISAFIRLER.values() if not m.bitti) >= AYAR['en_cok']:
-            return 503, {'hata': 'dolu', 'mesaj': 'Sunucu dolu (en çok %d misafir).' % AYAR['en_cok']}
-    d = body.get('profil')
-    err = gecerli_profil(d)
-    if err:
-        return 400, {'hata': 'profil', 'mesaj': 'Kayıt geçersiz: %s.' % err}
-    ad = str((d.get('pilot') or {}).get('userName') or '').strip().lower()
-    with COND:
-        adlar = {_ad(m.profil) for m in MISAFIRLER.values() if not m.bitti and m.profil is not None} |             {_ad(y.profil) for y in YERELLER.values()} | ({_ad(ana)} if ana is not None else set())
-    if ad in adlar:                               # sohbet, posta, grup, rehber ve klan oyuncuyu adıyla bulur (yerel_ekle gibi)
-        return 409, {'hata': 'ad', 'mesaj': 'Sunucuda "%s" adlı bir pilot zaten var: aynı adla iki oyuncu sohbette, postada, grupta ve '
-                                            'klanda karışır. Pilot adını değiştirip yeniden katıl.' % d['pilot']['userName']}
-    with COND:
-        uid = _yeni_uid({sunucu_uid} | {m.uid for m in MISAFIRLER.values()} | {y.uid for y in YERELLER.values()})
-        m = Misafir(secrets.token_urlsafe(18), anahtar, uid, d['pilot']['userId'], str(body.get('adres') or ''), ip)
-        kimlik_cevir(d, m.asil_uid, uid)
-        m.profil = MisafirProfil(tohum, d, m)
-        m.yayimla(json.dumps(m.profil.d, ensure_ascii=False))
-        MISAFIRLER[m.oturum] = m
-    log('misafir geldi: %s (%s), sunucudaki kimlik %d' % (d['pilot'].get('userName'), ip, uid))
-    return 200, {'oturum': m.oturum, 'uid': uid, 'surum': m.surum, 'devam': False}
+        return 400, {'hata': 'anahtar', 'mesaj': 'Misafir oturum anahtarı eksik.'}
+    try:
+        friend_slot, friend_hash = _friend_slot(body.get('kayit_kimligi'))
+    except ValueError as e:
+        return 400, {'hata': 'kimlik', 'mesaj': str(e)}
+
+    # Aynı anahtarla bağlantı yenilenirse bellekteki son hâl sürer; aynı profil paralel açılamaz.
+    with FRIEND_LOCK:
+        with COND:
+            eski = next((m for m in MISAFIRLER.values() if esit(m.anahtar, anahtar) and not m.bitti), None)
+            if eski:
+                if eski.friend_hash != friend_hash:
+                    return 409, {'hata': 'kimlik', 'mesaj': 'Bu oturum başka bir arkadaş kaydına bağlı.'}
+                eski.son, eski.ip = time.time(), ip
+                eski.adres = str(body.get('adres') or eski.adres)
+                return 200, {'oturum': eski.oturum, 'uid': eski.uid, 'surum': eski.surum,
+                             'devam': True, 'profil': eski.disari()}
+            if any(not m.bitti and m.friend_hash == friend_hash for m in MISAFIRLER.values()):
+                return 409, {'hata': 'kayit_acik', 'mesaj': 'Bu arkadaş kaydı başka bir oturumda açık. Önce önceki bağlantıyı kapatın.'}
+            if sum(1 for m in MISAFIRLER.values() if not m.bitti) >= AYAR['en_cok']:
+                return 503, {'hata': 'dolu', 'mesaj': 'Sunucu dolu (en çok %d misafir).' % AYAR['en_cok']}
+
+        incoming = body.get('profil')
+        err = gecerli_profil(incoming)
+        if err:
+            return 400, {'hata': 'profil', 'mesaj': 'Gönderilen kayıt geçersiz: %s.' % err}
+        try:
+            saved = _friend_load(friend_slot, friend_hash)
+        except ValueError as e:
+            return 409, {'hata': 'kayit_bozuk', 'mesaj': str(e)}
+        if saved is not None:
+            if saved['pilot'].get('userId') != incoming['pilot'].get('userId'):
+                return 409, {'hata': 'kimlik_eslesmiyor',
+                             'mesaj': 'Bu kalıcı arkadaş kaydı farklı bir pilot kimliğiyle eşleşiyor. Ana kayıt korunuyor.'}
+            d = saved                           # host kopyası daima üstündür
+        else:
+            d = incoming
+        err = gecerli_profil(d)
+        if err:
+            return 400, {'hata': 'profil', 'mesaj': 'Kayıt geçersiz: %s.' % err}
+        ad = str((d.get('pilot') or {}).get('userName') or '').strip().lower()
+        with COND:
+            adlar = {_ad(m.profil) for m in MISAFIRLER.values() if not m.bitti and m.profil is not None} | \
+                    {_ad(y.profil) for y in YERELLER.values()} | ({_ad(ana)} if ana is not None else set())
+            if ad in adlar:
+                return 409, {'hata': 'ad', 'mesaj': 'Sunucuda "%s" adlı bir pilot zaten var: pilot adını değiştirip yeniden katıl.' %
+                             d['pilot']['userName']}
+            uid = _yeni_uid({sunucu_uid} | {m.uid for m in MISAFIRLER.values()} | {y.uid for y in YERELLER.values()})
+            m = Misafir(secrets.token_urlsafe(18), anahtar, uid, d['pilot']['userId'],
+                        str(body.get('adres') or ''), ip, friend_slot, friend_hash)
+            kimlik_cevir(d, m.asil_uid, uid)
+            m.profil = MisafirProfil(tohum, d, m)
+            text = json.dumps(m.profil.d, ensure_ascii=False)
+            try:
+                m.zapisla(text)                    # ilk kopya heti diske; sonraki autosave'ler günceller
+            except (OSError, ValueError, TypeError) as e:
+                return 500, {'hata': 'kayit_yazilamadi', 'mesaj': 'Arkadaş kaydı diske yazılamadı: %s' % e}
+            m.yayimla(text)
+            MISAFIRLER[m.oturum] = m
+    log('misafir geldi: %s (%s), sunucudaki kimlik %d, kalıcı kayıt %s' %
+        (d['pilot'].get('userName'), ip, uid, friend_slot))
+    return 200, {'oturum': m.oturum, 'uid': m.uid, 'surum': m.surum, 'devam': False, 'profil': m.disari()}
 
 
 def _misafir(q):
@@ -580,7 +734,7 @@ def _yanit(c, code, obj, gz=False):
         data = gzip.compress(data, 6)
         extra = 'Content-Encoding: gzip\r\n'
     status = {200: 'OK', 400: 'Bad Request', 403: 'Forbidden', 404: 'Not Found', 409: 'Conflict', 429: 'Too Many Requests',
-              503: 'Service Unavailable'}.get(code, 'OK')
+              503: 'Service Unavailable', 500: 'Internal Server Error'}.get(code, 'OK')
     c.sendall(('HTTP/1.1 %d %s\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: %d\r\n%sConnection: close\r\n'
                'X-DarkOrbit: arkadas\r\n\r\n' % (code, status, len(data), extra)).encode('latin-1') + data)
 
@@ -604,7 +758,8 @@ def http(c, addr, game):
             return _yanit(c, 400, {'hata': 'json'})
         ip = addr[0]
         yerel = ip in ('127.0.0.1', '::1')
-        yonetim = yerel and AYAR['anahtar'] and esit(b.get('anahtar'), AYAR['anahtar'])
+        yonetim_anahtar = b.get('anahtar') if method == 'POST' else q.get('anahtar')
+        yonetim = yerel and AYAR['anahtar'] and esit(yonetim_anahtar, AYAR['anahtar'])
         if u.path.startswith('/misafir/') and not AYAR['misafir']:
             code, out = 403, {'hata': 'kapali', 'mesaj': 'Bu sunucu misafir kabul etmiyor.'}
         elif u.path == '/yerel/ekle' and method == 'POST' and yonetim:
@@ -622,6 +777,8 @@ def http(c, addr, game):
             code, out = profil_yokla(q)
         elif u.path == '/misafir/cikis' and method == 'POST':
             code, out = cikis(b, game.kapat_oturum)
+        elif u.path == '/yonetim/zapisy' and method == 'GET' and yonetim:
+            code, out = 200, {'aktif': aktif_kayitlar_znajomych()}
         elif u.path == '/yonetim/at' and method == 'POST' and yonetim:
             m = next((x for x in liste() if x.oturum.startswith(str(b.get('oturum') or '-'))), None)
             if m:

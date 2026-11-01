@@ -1,14 +1,16 @@
 """Arkadaşlarınla Oyna (panel): arkadaş sunucusu kurma (Host) ve arkadaşın sunucusuna katılma (Join).
 
 Host: panel oyun sunucusunu --cok-oyunculu ile başlatır (server/cok_oyunculu.py): oyun (TCP 8081) ve sohbet (TCP 7771) bütün
-ağlardan dinlenir, oyuncu kendi kaydıyla oyuna girer. Misafirler kayıtlarını oyun portundan gönderir; sunucu onları yalnız bellekte
-tutar (bu bilgisayarın Kayıtlar sayfasında görünmez). Bağlı misafirler oyun sunucusunun canli_durum.json'undan; misafiri çıkarma
-/yonetim/at ile (yalnız bu bilgisayardan, panelin bu açılıştaki yönetim anahtarıyla).
-Join: seçilen kayıt yedeklenir ve arkadaşın sunucusuna gönderilir (POST /misafir/giris), web.py o sunucuyu gösterecek biçimde
-(--uzak) başlar, istemci açılır. Oyun sürerken sunucudaki her yeni sürüm (uzun yoklama, GET /misafir/profil) kendi kayıt yuvasına
-yazılır; istemci kapanınca (ya da Ayrıl) son hâl alınıp yazılır (POST /misafir/cikis) ve web sunucusu kapanır. Kayıt hep misafirin
-bilgisayarında kalır. Oturum yarım kalırsa (panel kapandı, elektrik gitti) yuvanın kayit.json'undaki 'arkadas' bilgisiyle bir
-sonraki katılmada sunucudaki son hâl alınır; yerel kayıt o arada değiştiyse (tek başına oynandı) dokunulmaz.
+ağlardan dinlenir, oyuncu kendi kaydıyla oyuna girer. Misafirler ilk girişte kararlı bir kayıt kimliği ve profil gönderir; host
+ana profili save/kayitlar/arkadas_<hash>/profil.json altında kalıcı tutar (normal Kayıtlar listesine karışmaz). Oyun her autosave'de
+host kopyasını atomik günceller, düzenleme öncesi ve aralıklı yedekler oluşturulur. Bağlı misafirler oyun sunucusunun
+canli_durum.json'undan; misafiri çıkarma /yonetim/at ile (yalnız bu bilgisayardan, panelin yönetim anahtarıyla).
+Join: seçilen kayıt yedeklenir, kararlı kimliğiyle arkadaşın sunucusuna gönderilir (POST /misafir/giris). Host'ta kayıt varsa
+host sürümü yerel profilden üstün tutulur ve oyun açılmadan yerel slota yazılır. Oyun sürerken host'tan gelen her yeni sürüm
+(uzun yoklama, GET /misafir/profil) yerel kopyaya eşitlenir; istemci kapanınca (ya da Ayrıl) son hâl alınır (POST /misafir/cikis).
+Host profili ana kayıttır; paneldeki Arkadaş kayıtları sekmesinden düzenlenebilir ve oyun oturumu açıkken salt okunurdur.
+Oturum yarım kalırsa (panel kapandı, elektrik gitti) yuvanın kayit.json'undaki 'arkadas' bilgisiyle sunucudaki son hâl alınır;
+yerel kayıt o arada değiştiyse eski dosyanın host ana kaydını ezmesine izin verilmez.
 """
 import gzip, json, os, re, secrets, socket, threading, time, zlib
 from urllib.error import HTTPError, URLError
@@ -19,7 +21,7 @@ from dil import t as _
 
 OYUN_PORTU = 8081
 SOHBET_PORTU = 7771
-PROTOKOL = 1                    # server/cok_oyunculu.PROTOKOL: hesap gönderiminin sürümü (test_cok_oyunculu denetler)
+PROTOKOL = 2                    # server/cok_oyunculu.PROTOKOL: kalıcı ana kayıt (test_cok_oyunculu denetler)
 BEKLE_SN = 25                   # uzun yoklamanın süresi
 YANIT_SINIR = 64 * 1024 * 1024
 GENEL_IP_HIZMETI = 'https://api.ipify.org'
@@ -132,6 +134,7 @@ class Arkadas:
         self.yerel = secrets.token_urlsafe(24)         # sunucunun kendi oyuncusunun oturumu (oyun sunucusu ve kendi web.py'si)
         self.lock = threading.RLock()
         self.genel = None
+        self.friend_busy = set()        # host'ta şu an açık olan kalıcı arkadaş profilleri (edit kilidi)
         self.m = self._bos()
 
     @staticmethod
@@ -148,6 +151,17 @@ class Arkadas:
     def host_durumu(self, canli):
         acik = self.yon.running() and self.yon.arkadas
         ark = (canli or {}).get('arkadas') or {}
+        self.friend_busy = set()
+        if acik:
+            try:
+                code, out = istek('127.0.0.1', OYUN_PORTU, 'GET', '/yonetim/zapisy?anahtar=%s' % quote(self.anahtar), timeout=4)
+                if code == 200:
+                    self.friend_busy = {str(x) for x in out.get('aktif', [])}
+                else:
+                    self.friend_busy = None          # brak statusu traktuj jak zajęty profil
+            except ArkadasHatasi as e:
+                self.friend_busy = None           # fail closed: przy braku statusu nie wolno edytować profili gości
+                self.log('nie udało się pobrać aktywnych zapisów znajomych: %s' % e)
         return {'acik': acik, 'ipler': yerel_ipler(), 'genel_ip': self.genel, 'oyun_portu': OYUN_PORTU, 'sohbet_portu': SOHBET_PORTU,
                 'sifre': self.cfg.get('arkadas_sifre'), 'en_cok': self.cfg.get('arkadas_en_cok'),
                 'misafirler': ark.get('misafirler', []) if acik else []}
@@ -170,6 +184,9 @@ class Arkadas:
 
     def kullanimda(self, slot):
         return self.aktif() and self.m['kayit'] == slot
+
+    def zapis_kullanimda(self, slot):
+        return self.friend_busy is None or slot in self.friend_busy
 
     def durum(self):
         with self.lock:
@@ -224,13 +241,22 @@ class Arkadas:
             with open(self.kay.profile(slot), encoding='utf8') as fh:
                 d = json.load(fh)
             m['asil_uid'] = d['pilot']['userId']
+            client_id = self.kay.meta(slot).get('arkadas_kimligi')
+            if not isinstance(client_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{32,128}', client_id):
+                client_id = secrets.token_urlsafe(32)
+                self.kay.set_meta(slot, arkadas_kimligi=client_id)
             self._adim(_('Hesap gönderiliyor'))
             anahtar = secrets.token_urlsafe(24)
             code, r = istek(host, port, 'POST', '/misafir/giris', {'surum': PROTOKOL, 'sifre': sifre or '', 'anahtar': anahtar,
-                                                                    'adres': host, 'profil': d}, timeout=60)
+                                                                    'kayit_kimligi': client_id, 'adres': host, 'profil': d}, timeout=60)
             if code != 200:
                 raise ArkadasHatasi(_mesaj(code, r))
-            m.update(oturum=r['oturum'], anahtar=anahtar, uid=r['uid'], surum=r['surum'], dosya=self._dosya(slot))
+            m.update(oturum=r['oturum'], anahtar=anahtar, uid=r['uid'], surum=0, dosya=self._dosya(slot))
+            if r.get('profil'):
+                self._yaz(slot, r['profil'], int(r.get('surum') or 1))   # host kopyasını oyun açılmadan yerel slota al
+            else:
+                m['surum'] = int(r.get('surum') or 0)
+            m['dosya'] = self._dosya(slot)
             self._isaretle(slot)
             self.log('arkadaş sunucusuna katılındı: %s:%d (kayıt %s, sunucudaki kimlik %s)' % (host, port, slot, r['uid']))
             self._adim(_('Web girişi hazırlanıyor'))
@@ -268,7 +294,7 @@ class Arkadas:
             if surum <= m['surum']:
                 return
             if not (isinstance(d, dict) and isinstance(d.get('pilot'), dict) and isinstance(d.get('gemi'), dict)
-                    and isinstance(d.get('konum'), dict)) or d['pilot'].get('userId') != m['asil_uid']:
+                    and isinstance(d.get('konum'), dict) and d['pilot'].get('userId') == m['asil_uid']):
                 self.log('arkadaş sunucusu: geçersiz kayıt sürümü %s yok sayıldı' % surum)
                 return
             p = self.kay.profile(slot)

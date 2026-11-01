@@ -146,7 +146,7 @@ YON = SR.Yonetici(YOL.LOGS, log)
 KAY = Kayitlar(CFG, python=SR.python_exe())
 ARK = Arkadas(CFG, KAY, YON, log, SURUM)                        # Arkadaşlarınla Oyna: Host ve Join (arkadas.py)
 COK = Coklu(CFG, KAY, YON, lambda: ARK.anahtar, YOL.LOGS, log)  # çoklu istemci: öteki kayıtlarla ek istemciler (coklu.py)
-KAY.in_use = lambda slot: (YON.running() and YON.slot == slot) or ARK.kullanimda(slot) or COK.kullanimda(slot)
+KAY.in_use = lambda slot: (YON.running() and YON.slot == slot) or ARK.kullanimda(slot) or ARK.zapis_kullanimda(slot) or COK.kullanimda(slot)
 UYAR = Uyarlayici(ROOT, SR.python_exe(), log, SR.NO_WINDOW)    # yeni istemciye protokol uyarlaması (protokol.py)
 UPD = Guncelleyici(ROOT, YOL.SAVE, log)                          # GitHub'dan güncelleme (guncelleme.py)
 MOT = CAL.motor()                                                # macOS: panelin kurduğu Wine + DXMT (wine_motoru.py)
@@ -1547,10 +1547,12 @@ def h_get(path, q):
         import takvim as TK
         d['etkinlik_adlari'] = [_(TK.EVENTS.get(k, {}).get('ad', k)) for k in d.get('etkinlikler', [])]
         return {'var': True, 'sunucu_acik': True, 'yas': max(0, time.time() - d.get('zaman', 0)), 'durum': d}
-    if path == '/api/arkadas':                      # Arkadaşlarınla Oyna: Host (sunucu, adresler, misafirler) ve Join (oturum)
+    if path == '/api/arkadas':                      # Arkadaşlarınla Oyna: Host, Join ve kalıcı arkadaş kayıtları
         canli = read_json(os.path.join(YOL.LOGS, 'canli_durum.json'), None) if YON.running() else None
         aktif = KAY.active()
-        return {'host': ARK.host_durumu(canli), 'misafir': ARK.durum(), 'kayitlar': KAY.list(), 'aktif': aktif,
+        host = ARK.host_durumu(canli)                # güncel aktif kayıt yuvaları: editörün salt okunur kilidi
+        return {'host': host, 'misafir': ARK.durum(), 'kayitlar': KAY.list(),
+                'zapisy_znajomych': KAY.friend_saves(), 'aktif': aktif,
                 'istemci_surumu': IST.check(client_folder()).get('surum') or IST.supported(),
                 # Host'un dünyası (Dünya Editörü): seçim ('' kaydının dünyası), seçilebilenler ve sunucunun açılacağı dünya
                 'dunya': {'secim': CFG.get('arkadas_dunya') if DW.var(CFG.get('arkadas_dunya') or '') else '',

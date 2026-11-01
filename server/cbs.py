@@ -606,10 +606,12 @@ class Cbs:
         df = a['deflector']
         att, dfn, rep = self.ratings(aid, now)
         return mod('BattleStationStatusCommand', mapAssetId=asset_id(aid), battleStationId=aid, battleStationName=AST[aid]['ad'],
-                   deflectorShieldActive=bool(df['acik']), deflectorShieldSeconds=int(df['sn']), deflectorShieldSecondsMax=D['deflector_azami_sn'],
+                   deflectorShieldActive=bool(AY.get('ksi_oslona') and df.get('acik')),
+                   deflectorShieldSeconds=int(df.get('sn', 0) if AY.get('ksi_oslona') else 0), deflectorShieldSecondsMax=D['deflector_azami_sn'],
                    attackRating=att, defenceRating=dfn, repairRating=rep, honorBoosterRating=int(round(self.booster_pct(aid, 'onur', now))),
                    experienceBoosterRating=int(round(self.booster_pct(aid, 'ep', now))),
-                   damageBoosterRating=int(round(self.booster_pct(aid, 'hasar', now))), deflectorShieldRate=int(self.deflector_rate(now, aid)),
+                   damageBoosterRating=int(round(self.booster_pct(aid, 'hasar', now))),
+                   deflectorShieldRate=int(self.deflector_rate(now, aid)) if AY.get('ksi_oslona') else 0,
                    repairPrice=D['acil_onarim']['bedel'], equipment=self.equipped(aid, now), isOreTradeAvailable=True)
 
     def management_ui(self, aid, now=None):
@@ -619,7 +621,7 @@ class Cbs:
             mapAssetId=asset_id(aid), battleStationId=aid, battleStationName=AST[aid]['ad'], clanName=self.st_name(a),
             faction=mod('FactionModule', faction=self.st_faction(a)), state=self.status_cmd(aid, now), availableModules=self.available_cmd(),
             deflectorShieldMinutesMin=dm[0], deflectorShieldMinutesMax=dm[1], deflectorShieldMinutesIncrement=dm[2],
-            deflectorDeactivationPossible=bool(a['deflector']['acik'])))
+            deflectorDeactivationPossible=bool(AY.get('ksi_oslona') and a['deflector'].get('acik'))))
 
     def building_state(self, aid, now=None):
         now = time.time() if now is None else now
@@ -700,9 +702,9 @@ class Cbs:
             if kind == SATELLITE and cmd[1]['designId'] == 0:
                 continue
             df = a['deflector']
-            if df.get('acik'):
+            if AY.get('ksi_oslona') and df.get('acik'):
                 cmd[1]['modifier'] = [self.deflector_modifier(uid, 34, True, int(df.get('sn', 0)))]
-            elif kind == BATTLESTATION:
+            elif AY.get('ksi_oslona') and kind == BATTLESTATION:
                 seconds = max(0, math.ceil(df.get('kapali_bitis', 0) - time.time()))
                 if seconds:
                     cmd[1]['modifier'] = [self.deflector_modifier(uid, 35, True, seconds)]
@@ -727,6 +729,10 @@ class Cbs:
         assets = [(uid, kind) for uid, kind, cmd in self.map_assets(aid)
                   if uid in shown and not (kind == SATELLITE and cmd[1]['designId'] == 0)]
         hub = asset_id(aid)
+        if not AY.get('ksi_oslona'):
+            # Clear both shield and cooldown effects for assets already on screen.
+            return [('VisualModifierCommand', self.deflector_modifier(uid, 34, False)) for uid, _ in assets] + \
+                   ([('VisualModifierCommand', self.deflector_modifier(hub, 35, False))] if hub in shown else [])
         if df['acik']:
             # Clearing timer 35 after shield 34 would delete the active shield's own timer (both effect 49).
             msgs = [('VisualModifierCommand', self.deflector_modifier(hub, 35, False))] if hub in shown else []
@@ -1093,7 +1099,9 @@ class Cbs:
         ist, asts = self.stats(a), self.asts
         with self.lock:
             a.update(durum='kurulu', kurulus=now)
-            a['deflector'] = {'acik': True, 'sn': D['kurulunca_deflector_dk'] * 60.0, 'kapali_bitis': 0.0, 'son': now}   # forum 127469
+            shield_on = bool(AY.get('ksi_oslona'))
+            a['deflector'] = {'acik': shield_on, 'sn': D['kurulunca_deflector_dk'] * 60.0 if shield_on else 0.0,
+                              'kapali_bitis': 0.0, 'son': now}   # native default; server setting can disable all shields
             ist['tum'] = ist.get('tum', 0) + 1
             ist['en_cok'] = max(ist.get('en_cok', 0), sum(1 for b in asts.values() if b.get('durum') == 'kurulu'
                                                        and b.get('sahip') != 'rakip' and b.get('klan') == a.get('klan')))
@@ -1126,6 +1134,18 @@ class Cbs:
 
     def deflector_tick(self, aid, a, now):
         df = a['deflector']
+        if not AY.get('ksi_oslona'):
+            changed = bool(df.get('acik') or df.get('sn') or df.get('kapali_bitis'))
+            df.update(acik=False, sn=0.0, kapali_bitis=0.0, son=now)
+            if changed:
+                self.bump(a)
+                self.mark()
+                return self.near_status(aid, now)
+            return []
+        if not df.get('acik') and df.get('sn', 0) <= 0 and df.get('kapali_bitis', 0) <= 0:
+            # If the option is enabled again, the station enters the normal recovery window.
+            df.update(kapali_bitis=now + D['deflector_bitince_dk'] * 60, son=now)
+            self.mark()
         cursor = min(now, df.get('son', now))
         changed, exhausted = False, False
         while True:
@@ -1173,7 +1193,7 @@ class Cbs:
         a = self.ast(aid)
         if a['durum'] != 'kurulu':
             return self.error('UNSPECIFIED')
-        if not self.can('battle_station_deflector'):
+        if not AY.get('ksi_oslona') or not self.can('battle_station_deflector'):
             return self.error('UNSPECIFIED')
         now = time.time()
         # Settle the active countdown before resetting its clock for the requested downtime.
@@ -1440,7 +1460,7 @@ class Cbs:
             a = self.ast(aid)
             if a['durum'] != 'kurulu' or a.get('sahip') == 'rakip':
                 continue
-            open_ = not a['deflector']['acik']
+            open_ = not (AY.get('ksi_oslona') and a['deflector'].get('acik'))
             due = a.get('sonraki_baskin', 0) if self.host is not None else self.next_raid.get(aid, 0)   # ortakta haritada tek baskın
             if open_ and prime_time(now) and now >= due:
                 self.next_raid[aid] = a['sonraki_baskin'] = now + D['baskin']['ara_dk'] * 60
@@ -1587,7 +1607,7 @@ class Cbs:
                     msgs += self.rival_build(aid, a, now)
         elif a.get('sahip') == 'rakip':
             df = a.setdefault('deflector', {})
-            active = bool(D['rakip'].get('deflector_prime_disinda') and not prime_time(now)
+            active = bool(AY.get('ksi_oslona') and D['rakip'].get('deflector_prime_disinda') and not prime_time(now)
                           and now >= df.get('kapali_bitis', 0))
             if bool(df.get('acik')) != active:
                 df['acik'] = active
@@ -1639,7 +1659,10 @@ class Cbs:
         for y in list(a['yuvalar'].values()):            # ortak: kurulmamış modüller sahiplerine
             self.give_back(y)
         with self.lock:
-            a.update(durum='kurulu', sahip='rakip', yuvalar=yv, kurulus=now, deflector={'acik': True})
+            shield_on = bool(AY.get('ksi_oslona'))
+            a.update(durum='kurulu', sahip='rakip', yuvalar=yv, kurulus=now,
+                     deflector={'acik': shield_on, 'sn': D['kurulunca_deflector_dk'] * 60.0 if shield_on else 0.0,
+                                'kapali_bitis': 0.0, 'son': now})
             a.pop('klan', None)
             self.bump(a)
             self.mark()
@@ -1651,7 +1674,7 @@ class Cbs:
 
     def rival_attackable(self, aid):
         a = self.ast(aid)
-        return a.get('sahip') == 'rakip' and a['durum'] == 'kurulu' and not (a.get('deflector') or {}).get('acik')
+        return a.get('sahip') == 'rakip' and a['durum'] == 'kurulu' and not (AY.get('ksi_oslona') and (a.get('deflector') or {}).get('acik'))
 
     def hit_asset(self, asset, dmg):
         """Oyuncunun rakip istasyonuna vuruşu (varlık kimliği) -> mesajlar."""
@@ -1703,7 +1726,7 @@ class Cbs:
         if self.asset_module(uid):
             a = self.ast(aid)
             hostile = self.rival_attackable(aid) or (self.host is not None and not self.mine(a)
-                and self.relation(a) == 3 and not a['deflector'].get('acik'))
+                and self.relation(a) == 3 and not (AY.get('ksi_oslona') and a['deflector'].get('acik')))
             if hostile:
                 return []
         return [legacy('0|A|STM|msg_station_not_atackable')]
@@ -1855,9 +1878,10 @@ class Cbs:
             has_def = any(int(s) == DEFLECTOR for s in a['yuvalar'])
             rows.append(mod('BattleStationOverviewInfoCommand', stationName=AST[aid]['ad'], xpBonus=float(self.booster_pct(aid, 'ep')),
                             timerCounter=max(0, int(a.get('kurma_bitis', 0) - time.time())) if a['durum'] == 'kurma' else 0,
-                            deflectorDownTime=max(0, int(df.get('kapali_bitis', 0) - time.time())),
-                            damageBonus=float(self.booster_pct(aid, 'hasar')), defStatus=bool(df.get('acik')),
-                            hasDeflectorModul=has_def, deflectorIsActive=bool(df.get('acik')), deflectorTime=int(df.get('sn', 0)),
+                            deflectorDownTime=max(0, int(df.get('kapali_bitis', 0) - time.time())) if AY.get('ksi_oslona') else 0,
+                            damageBonus=float(self.booster_pct(aid, 'hasar')), defStatus=bool(AY.get('ksi_oslona') and df.get('acik')),
+                            hasDeflectorModul=has_def, deflectorIsActive=bool(AY.get('ksi_oslona') and df.get('acik')),
+                            deflectorTime=int(df.get('sn', 0) if AY.get('ksi_oslona') else 0),
                             allModuleCount=len(a['yuvalar']), mapName=H.name(AST[aid]['harita']), buildCompleted=a['durum'] == 'kurulu',
                             maxAmountOfModule=SLOTS, honourBonus=float(self.booster_pct(aid, 'onur')), stationId=aid))
         longest = max(ist.get('en_uzun_sn', 0), max([int(time.time() - a.get('kurulus', time.time())) for a in self.asts.values()
@@ -1912,7 +1936,10 @@ class Cbs:
             msgs.append(KAPI.screen('GM: kurulum bitti'))
         if aid and 'deflector' in what:
             df = self.ast(aid)['deflector']
-            df['acik'] = not df.get('acik')
+            if not AY.get('ksi_oslona'):
+                df.update(acik=False, sn=0.0, kapali_bitis=0.0)
+            else:
+                df['acik'] = not df.get('acik')
             df['kapali_bitis'] = 0 if df['acik'] else time.time() + 3600
             df['sn'] = max(df.get('sn', 0), 3600) if df['acik'] else df.get('sn', 0)
             df['son'] = time.time()

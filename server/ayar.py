@@ -103,6 +103,9 @@ SCHEMA = [
        'hariç).', varsayilan=True),
     _c('radyasyon', 'Radyasyon hasarı', 'savas', 'Harita sınırının dışındaki radyasyonun gövdeye verdiği hasar. 0: radyasyon '
        'zarar vermez.', lo=0.0, hi=5.0, sinir=100.0),
+    _b('ksi_oslona', 'Klan Savaş İstasyonu koruma kalkanı', 'savas',
+       'Yeni kurulan ve mevcut bütün Klan Savaş İstasyonlarının koruma kalkanı. Kapatılırsa deflektör hemen devre dışı kalır, yeniden dolmaz ve bütün istasyonlar saldırıya açık olur.',
+       varsayilan=True),
     _c('ksi_can', 'Klan Savaş İstasyonu canı', 'savas', 'Bütün Klan Savaş İstasyonlarının (seninkinin, bot klanlarının ve rakip klanların) '
        'modüllerinin canı ve kalkanı. Değişince modüllerin mevcut canı oranıyla ölçeklenir; istemcide çubuklar haritaya yeniden '
        'girince ya da modül vurulunca yenilenir.', uygulama='harita', lo=0.1, hi=10.0, sinir=1000.0),
