@@ -113,7 +113,7 @@ class SymulacjaOffline:
                         if not pakiet.get('dunya') or pakiet.get('kip') == 'basit':
                             continue
                         a = pakiet.get('ayarlar') or {}
-                        limit_h = max(0, min(150, int(a.get('telafi_saat', 150) or 0))
+                        limit_h = max(0, min(150, int(a.get('telafi_saat', 150) or 0)))
                         tempo = max(0.0, min(1.0, float(a.get('telafi_oran', 0.35))))
                         meta = self._czytaj_meta(pid)
                         last = float(meta.get('last_wall') or now)
