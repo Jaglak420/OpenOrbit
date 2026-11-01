@@ -41,7 +41,6 @@ public class Eklenti : BasePlugin
             GorselDokumu.Log = Log;
             AddComponent<GorselDokumu>();
         });
-        Uygula("GM Center overlay", () => AddComponent<GMCenterOverlay>());
     }
 
     void Uygula(string ad, Action yama)
