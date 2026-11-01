@@ -57,7 +57,7 @@ VARSAYILAN = {                 # paketin ayarları (panel/botlar.py aynı anahta
     'prime_pvp': 2.0,          # yoğun saatte PvP isteği çarpanı (1: fark yok)
     'buyuk_savas': True,       # yoğun saatte firmaların PvP botları ortak cephe haritasında toplanır
     'izinler': {'magaza': True, 'gorev': True, 'pvp': True, 'sohbet': True, 'klan': True, 'klan_kur': True, 'arkadas': True,
-                'grup': True, 'muzayede': True, 'oyuncuya_saldir': True, 'yardim': True, 'kutu_calma': True, 'kargo': True, 'roket': True, 'ozel_cephane': True, 'ekstra': True, 'mayin': True, 'lab': True, 'skylab': True, 'teknoloji': True, 'ganimet': True, 'assembly': True, 'kapi': True, 'etkinlik': True, 'modlar': True, 'klan_diplomasi': True, 'klan_emir': True, 'kapi_dolgu': True},
+                'grup': True, 'muzayede': True, 'oyuncuya_saldir': True, 'yardim': True, 'kutu_calma': True, 'kargo': True, 'roket': True, 'ozel_cephane': True, 'ekstra': True, 'mayin': True, 'lab': True, 'skylab': True, 'teknoloji': True, 'ganimet': True, 'assembly': True, 'kapi': True, 'etkinlik': True, 'modlar': True, 'klan_diplomasi': True, 'klan_emir': True, 'kapi_dolgu': True, 'klan_ksi': True},
 }
 
 
