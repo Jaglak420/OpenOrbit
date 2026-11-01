@@ -510,6 +510,19 @@ def gm_players(game):
     return {'players': out, 'count': len(out)}
 
 
+def gm_online_snapshot(game):
+    gm_admin(game)
+    import topluluk as TP
+    out = []
+    for person in TP.hepsi().values():
+        if person.oturum is None:
+            continue
+        row = GMC.player_snapshot(person)
+        out.append({'uid': row['uid'], 'name': row['name'], 'level': row['level'],
+                    'online': True, 'map_id': row['map_id']})
+    return {'players': out, 'count': len(out)}
+
+
 def gm_dispatch_gates(game, q):
     gm_admin(game)
     import topluluk as TP
@@ -594,6 +607,8 @@ def start(game, folder, log=print):
                 return self._isle(lambda: gm_bootstrap(game, anahtar))
             if u.path == '/gm/players':
                 return self._isle(lambda: gm_players(game))
+            if u.path == '/gm/online':
+                return self._isle(lambda: gm_online_snapshot(game))
             if u.path == '/gm/dispatch/gates':
                 return self._isle(lambda: gm_dispatch_gates(game, q))
             if u.path == '/magaza':
