@@ -74,7 +74,7 @@ class SymulacjaOffline:
         """Klanlar ve CBS için kapalı oyun dünyasının kalıcı profilini geçici olarak bağla."""
         path = self.profil_sciezka(pid) if self.profil_sciezka else None
         if not path or not os.path.isfile(path):
-            yield False
+            yield None
             return
         import profil as PF
         import klan as KL
@@ -103,7 +103,8 @@ class SymulacjaOffline:
             BOT_TOPLUM.kaydol(manager, None)
             manager.toplum = True
             # .asts mevcut istasyonları ortak kayda alır ve bot klanlarının CBS erişimini hazırlar.
-            CB.Cbs(profil, None, self.log).asts
+            cbs = CB.Cbs(profil, None, self.log)
+            cbs.asts
         except Exception:
             self.log('botlar offline: dünya bağlamı kurulamadı (%s)\\n%s' % (pid, traceback.format_exc()))
             manager.toplum = False
@@ -117,7 +118,7 @@ class SymulacjaOffline:
             yield False
             return
         try:
-            yield True
+            yield cbs
             KL.kaydet()
             if profil.dirty:
                 profil.save()
@@ -200,8 +201,9 @@ class SymulacjaOffline:
                         sim_now = sim_start + step * tempo
                         manager = self._menedzer(pid, pakiet, sim_start)
                         # Social decisions, clan budgets/diplomacy and CBS station strategy share the same world context.
-                        with self._swiat_kontekst(pid, manager):
-                            manager.telafi(step * tempo, sim_now)
+                        with self._swiat_kontekst(pid, manager) as cbs:
+                            manager.telafi(step * tempo, sim_now,
+                                           offline_tick=cbs.tick if cbs is not None else None)
                         manager.kaydet(sim_now)
                         meta.update(last_wall=last + step, used_seconds=min(limit_h * 3600, used + step),
                                     sim_time=sim_now, paused=False, last_run=now, limit_hours=limit_h)
