@@ -177,7 +177,7 @@ class SymulacjaOffline:
                     with self.boty._KILIT:
                         pakiet = self.boty.oku(pid)
                         meta = self._czytaj_meta(pid)
-                        if not pakiet.get('dunya') or pakiet.get('kip') == 'basit':
+                        if not pakiet.get('dunya'):
                             meta.update(last_wall=now, used_seconds=0.0, sim_time=now, paused=False)
                             self._zapisz_meta(pid, meta)
                             continue
