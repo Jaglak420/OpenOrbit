@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/remote-friend-saves-and-cbs-shield
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
