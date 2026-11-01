@@ -26,6 +26,45 @@ jobs:
         run: |
           python -m json.tool server/panel/arayuz/pl.json > /dev/null
           python -m json.tool server/panel/arayuz/en.json > /dev/null
+      - name: Exercise host-authoritative friend save storage
+        env:
+          PYTHONPATH: server
+        run: |
+          python - <<'PY'
+          import copy
+          import json
+          import tempfile
+          import cok_oyunculu as multiplayer
+
+          multiplayer.YOL.KAYITLAR = tempfile.mkdtemp(prefix="openorbit-friend-saves-")
+          key = "K" * 48
+          slot, digest = multiplayer._friend_slot(key)
+          original = {
+              "pilot": {"userId": 123456, "userName": "TestPilot"},
+              "gemi": {},
+              "konum": {"mapId": 1, "x": 100, "y": 200},
+          }
+          guest_profile = copy.deepcopy(original)
+          guest_profile["pilot"]["userId"] = 2000000123
+          guest = multiplayer.Misafir(
+              "session", "session-secret", 2000000123, 123456,
+              "127.0.0.1", "127.0.0.1", slot, digest
+          )
+          guest.zapisla(json.dumps(guest_profile))
+          assert multiplayer._friend_load(slot, digest) == original
+
+          edited = copy.deepcopy(original)
+          edited["pilot"]["userName"] = "HostEditedPilot"
+          guest.zapisla(json.dumps({**edited, "pilot": {**edited["pilot"], "userId": 2000000123}}))
+          assert multiplayer._friend_load(slot, digest) == edited
+
+          try:
+              multiplayer._friend_load(slot, "0" * 64)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("A mismatched friend identity must never load another profile")
+          PY
       - name: Validate panel JavaScript
         run: |
           node --check server/panel/arayuz/panel.js
