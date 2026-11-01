@@ -1381,6 +1381,20 @@ def eslik(w, n, now):
             saldiranlar = [(an, uid) for uid, an in lider[1].saldiran.items() if now - an < 6]
             if saldiranlar:
                 t = max(saldiranlar)[1]
+        elif lider[0] == 'b' and rol == 'kesif' and t is None:
+            # Zwiadowca yakındaki düşman pilotu, grup savaşa başlamadan önce arar.
+            nx, ny = n.mover.pos(now)
+            zagrozenia = []
+            for przeciwnik in w.npcs.values():
+                if (przeciwnik is n or przeciwnik.bot is None or not przeciwnik.alive
+                        or not bota_saldirabilir(w, n, przeciwnik, now)):
+                    continue
+                px, py = przeciwnik.mover.pos(now)
+                odleglosc = math.hypot(px - nx, py - ny)
+                if odleglosc <= 3200:
+                    zagrozenia.append((odleglosc, przeciwnik))
+            if zagrozenia:
+                t = min(zagrozenia, key=lambda x: x[0])[1].id
         m = w.npcs.get(t) if t is not None else None
         if m is not None and m.alive:
             if m.bot is None and not m.d.get('dost') and kesebilir(n.bot, m):
