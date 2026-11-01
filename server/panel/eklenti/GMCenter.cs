@@ -36,7 +36,7 @@ public sealed class GMCenterOverlay : MonoBehaviour
     readonly List<GateRow> gates = new();
 
     Rect window = new(0, 0, 1120, 720);
-    Vector2 playerScroll, gateScroll, logScroll;
+    Vector2 playerScroll, gateScroll;
     Page page;
     string token = "", api = "http://127.0.0.1:8098";
     string selectedUid = "", selectedName = "";
