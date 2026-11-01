@@ -591,10 +591,7 @@ def start(game, folder, log=print):
             u = urlparse(self.path)
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             if u.path == '/gm/bootstrap':
-                try:
-                    return self._yanit(200, gm_bootstrap(game, anahtar))
-                except Hata as e:
-                    return self._yanit(e.kod, {'hata': str(e)})
+                return self._isle(lambda: gm_bootstrap(game, anahtar))
             if u.path == '/gm/players':
                 return self._isle(lambda: gm_players(game))
             if u.path == '/gm/dispatch/gates':
