@@ -171,7 +171,7 @@ def bot_offline_profil(pid):
         return None
     try:
         paket = BT.oku(pid)
-        if paket.get('dunya') != world_id(slot, False):
+        if paket.get('kip') == 'basit' or paket.get('dunya') != world_id(slot, False):
             return None
         return KAY.profile(slot)
     except Exception:
