@@ -1980,7 +1980,7 @@ def yarisi_iade(cid, moduller):
         k.setdefault('ksi', {}).setdefault('stok', []).extend(moduller)
 
 
-def bot_kur(aid, k, moduller, dakika, log=print):
+def bot_kur(aid, k, moduller, dakika, log=print, now=None):
     """Yarışı bitiren bot klanı istasyonu kurmaya başlar: modüller yuvalara (sahibi klan: '@klan:<kimlik>'; yıkılınca bekleyen
     olarak döner, klan_us stoğa alır), asteroide modül takmış oyuncunun modülleri sahibine, öteki bot klanlarınınkiler stoklarına.
     -> başladı mı."""
@@ -1991,7 +1991,7 @@ def bot_kur(aid, k, moduller, dakika, log=print):
     a = c.ast(aid)
     if a['durum'] != 'bos':
         return False
-    now = time.time()
+    now = time.time() if now is None else now
     eski = list(a['yuvalar'].values())
     with h.lock:
         d = h.d['cbs']
