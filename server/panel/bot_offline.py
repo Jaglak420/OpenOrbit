@@ -4,11 +4,14 @@ Panel uruchamia tę usługę, gdy nie działa klient ani serwer gry. Postęp jes
 atomowo do zapisu pakietu i zatrzymywany przed startem gry. Limit jest liczony jako czas
 offline (maksymalnie 150 h na jedną przerwę między uruchomieniami gry).
 """
+import copy
 import json
 import os
 import threading
 import time
 import traceback
+from contextlib import contextmanager
+from types import SimpleNamespace
 
 from bot.yonetici import Yonetici
 
@@ -17,10 +20,11 @@ class SymulacjaOffline:
     KROK_MIN = 60.0
     KROK_MAX = 300.0
 
-    def __init__(self, boty, aktywna, log=print):
+    def __init__(self, boty, aktywna, log=print, profil_sciezka=None):
         self.boty = boty
         self.aktywna = aktywna
         self.log = log
+        self.profil_sciezka = profil_sciezka
         self.lock = threading.RLock()
         self.menedzerowie = {}
         self.wstrzymana = True
@@ -64,6 +68,68 @@ class SymulacjaOffline:
         manager = Yonetici(pakiet, self.boty.durum_yolu(pid), self.log, now=now, offline=True)
         self.menedzerowie[pid] = (self._sygnatura(pid), manager)
         return manager
+
+    @contextmanager
+    def _swiat_kontekst(self, pid, manager):
+        """Klanlar ve CBS için kapalı oyun dünyasının kalıcı profilini geçici olarak bağla."""
+        path = self.profil_sciezka(pid) if self.profil_sciezka else None
+        if not path or not os.path.isfile(path):
+            yield False
+            return
+        import profil as PF
+        import klan as KL
+        import topluluk as TP
+        import cbs as CB
+        from bot import yonetici as BY
+        from bot import toplum as BOT_TOPLUM
+
+        old_oyun, old_botlar, old_aktif = TP.OYUN, TP.BOTLAR, BY.AKTIF
+        with KL.LOCK:
+            old_klanlar = copy.deepcopy(KL.KLANLAR)
+            old_silinen = copy.deepcopy(KL.SILINEN)
+            old_dosya, old_ad_n = KL.DOSYA, KL.BOT_AD_N
+            KL.KLANLAR.clear()
+            KL.SILINEN.clear()
+            KL.DOSYA = None
+            KL.BOT_AD_N = 0
+        profil = None
+        try:
+            profil = PF.Profil(path=path)
+            # cbs.ortak() ve topluluk.hepsi() oyunun PROFiL/CURRENT arayüzünü okur.
+            TP.OYUN = SimpleNamespace(PROFIL=profil, CURRENT=None)
+            klan_dosyasi = os.path.join(os.path.dirname(self.boty.durum_yolu(pid)), 'klanlar.json')
+            KL.configure(klan_dosyasi)
+            BY.AKTIF = manager
+            BOT_TOPLUM.kaydol(manager, None)
+            manager.toplum = True
+            # .asts otomatik olaraq tek-oyunculu istasyonları ortak kayda alır ve bot klanlarının CBS erişimini hazırlar.
+            CB.Cbs(profil, None, self.log).asts
+        except Exception:
+            self.log('botlar offline: dünya bağlamı kurulamadı (%s)\\n%s' % (pid, traceback.format_exc()))
+            TP.OYUN, TP.BOTLAR, BY.AKTIF = old_oyun, old_botlar, old_aktif
+            with KL.LOCK:
+                KL.KLANLAR.clear()
+                KL.KLANLAR.update(old_klanlar)
+                KL.SILINEN.clear()
+                KL.SILINEN.update(old_silinen)
+                KL.DOSYA, KL.BOT_AD_N = old_dosya, old_ad_n
+            yield False
+            return
+        try:
+            yield True
+            KL.kaydet()
+            if profil.dirty:
+                profil.save()
+        finally:
+            manager.toplum = False
+            TP.OYUN, TP.BOTLAR, BY.AKTIF = old_oyun, old_botlar, old_aktif
+            with KL.LOCK:
+                KL.KLANLAR.clear()
+                KL.KLANLAR.update(old_klanlar)
+                KL.SILINEN.clear()
+                KL.SILINEN.update(old_silinen)
+                KL.DOSYA, KL.BOT_AD_N = old_dosya, old_ad_n
+
 
     def _resetuj_pakiety(self, now):
         for pid in self.boty.liste_kimlik():
@@ -130,8 +196,14 @@ class SymulacjaOffline:
                         if step <= 0:
                             continue
                         manager = self._menedzer(pid, pakiet, now)
-                        # telafi() stosuje rytm dobowy i indywidualną aktywność każdego pilota.
-                        manager.telafi(step * tempo, now)
+                        # Social decisions, clan budgets/diplomacy and CBS station strategy share the same world context.
+                        with self._swiat_kontekst(pid, manager) as world_ready:
+                            manager.telafi(step * tempo, now)
+                            if world_ready:
+                                manager._toplum_tick(now)
+                                # bot.toplum.kaydet stores clan membership and bot leader decisions in clan profile file
+                                import klan as KL
+                                KL.kaydet()
                         manager.kaydet(now)
                         meta.update(last_wall=last + step, used_seconds=min(limit_h * 3600, used + step),
                                     paused=False, last_run=now, limit_hours=limit_h)
