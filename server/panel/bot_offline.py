@@ -115,7 +115,7 @@ class SymulacjaOffline:
                 KL.SILINEN.clear()
                 KL.SILINEN.update(old_silinen)
                 KL.DOSYA, KL.BOT_AD_N = old_dosya, old_ad_n
-            yield False
+            yield None
             return
         try:
             yield cbs
