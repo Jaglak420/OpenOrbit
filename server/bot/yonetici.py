@@ -34,8 +34,8 @@ VARSAYILAN = {                 # paketin ayarları (panel/botlar.py aynı anahta
     'hiz': 1.0,                # ilerleme hızı çarpanı
     'cevrimici_oran': 0.6,     # botların çevrimiçi olma eğilimi çarpanı
     'en_cok_cevrimici': 0,     # aynı anda en çok çevrimiçi (0: sınırsız)
-    'telafi_saat': 4,          # oyuncu yokken geçen süreden benzetilen en çok saat (0: telafi yok)
-    'telafi_oran': 0.35,       # telafide ilerleme oranı
+    'telafi_saat': 150,        # istemci kapalıyken panelin simüle edeceği en çok offline saat (0: kapalı)
+    'telafi_oran': 0.35,       # offline simülasyon temposu (1: tam hız)
     'kayit_sn': 15,            # progressive: her firmaya ortalama bu kadar saniyede bir yeni pilot kayıt olur (0: hepsi baştan)
     'firma_guc': [1.0, 1.0, 1.0],        # firmaların gelişim çarpanı (MMO, EIC, VRU)
     'jumpstart_saat': 60,      # jumpstart: ortalama oyun saati (dağılım lognormal)
@@ -57,14 +57,15 @@ VARSAYILAN = {                 # paketin ayarları (panel/botlar.py aynı anahta
     'prime_pvp': 2.0,          # yoğun saatte PvP isteği çarpanı (1: fark yok)
     'buyuk_savas': True,       # yoğun saatte firmaların PvP botları ortak cephe haritasında toplanır
     'izinler': {'magaza': True, 'gorev': True, 'pvp': True, 'sohbet': True, 'klan': True, 'klan_kur': True, 'arkadas': True,
-                'grup': True, 'muzayede': True, 'oyuncuya_saldir': True, 'yardim': True, 'kutu_calma': True, 'kargo': True, 'roket': True, 'ozel_cephane': True, 'ekstra': True, 'mayin': True, 'lab': True, 'skylab': True, 'teknoloji': True, 'ganimet': True, 'assembly': True, 'kapi': True, 'etkinlik': True, 'modlar': True, 'klan_diplomasi': True, 'klan_emir': True, 'kapi_dolgu': True},
+                'grup': True, 'muzayede': True, 'oyuncuya_saldir': True, 'yardim': True, 'kutu_calma': True, 'kargo': True, 'roket': True, 'ozel_cephane': True, 'ekstra': True, 'mayin': True, 'lab': True, 'skylab': True, 'teknoloji': True, 'ganimet': True, 'assembly': True, 'kapi': True, 'etkinlik': True, 'modlar': True, 'klan_diplomasi': True, 'klan_emir': True, 'kapi_dolgu': True, 'klan_ksi': True},
 }
 
 
 class Yonetici(SohbetMotoru):
-    def __init__(self, paket, durum_yolu=None, log=print, now=None):
+    def __init__(self, paket, durum_yolu=None, log=print, now=None, offline=False):
         self.paket = paket
         self.durum_yolu = durum_yolu
+        self.offline = bool(offline)       # paneldeki çevrimdışı simülatörü: ilk nüfusu kurma veya telafi etme
         self.log = log
         self.ayarlar = dict(VARSAYILAN, **(paket.get('ayarlar') or {}))
         self.ayarlar['izinler'] = dict(VARSAYILAN['izinler'], **(self.ayarlar.get('izinler') or {}))
@@ -119,10 +120,20 @@ class Yonetici(SohbetMotoru):
         for kd in self.paket.get('kadro', []):
             k = eski.get(str(kd['no']))
             if k is None:
-                k = dict(no=kd['no'], ad=kd['ad'], firma=kd['firma'], kisilik=kd['kisilik'], kayitli=not sirali)
+                kisilik = dict(kd['kisilik'])
+                kisilik['ozellik'] = dict(kisilik.get('ozellik') or {})
+                k = dict(no=kd['no'], ad=kd['ad'], firma=kd['firma'], kisilik=kisilik, kayitli=not sirali)
                 yeni.append(k)
             else:
-                k.update(ad=kd['ad'], firma=kd['firma'], kisilik=kd['kisilik'])      # panelde ad değişmiş olabilir
+                # Panel kişilik temelini güncelleyebilir; savaş deneyimi ayrı delta olarak kalıcıdır.
+                adaptasyon = k.get('kisilik_adaptasyon') or {}
+                kisilik = dict(kd['kisilik'])
+                ozellik = dict(kisilik.get('ozellik') or {})
+                for alan, delta in adaptasyon.items():
+                    taban = float(ozellik.get(alan, 0.5))
+                    ozellik[alan] = round(max(0.05, min(0.95, taban + float(delta))), 3)
+                kisilik['ozellik'] = ozellik
+                k.update(ad=kd['ad'], firma=kd['firma'], kisilik=kisilik)      # panelde ad değişmiş olabilir
             if self.kip == 'gelismis' and not cok_dilli:
                 k['kisilik'] = dict(k['kisilik'], dil='en')      # dahili dil modeli yalnız İngilizce (llm.py; başka sağlayıcıda serbest)
             b = Bot(k)
@@ -147,9 +158,10 @@ class Yonetici(SohbetMotoru):
         for f in self.kayit_sirasi:
             self.sonraki_kayit[f] = now + self.ayar('kayit_sn', 15) * b.r.uniform(0.2, 1.0)
         t = kayit.get('t')
-        if t and self.ayar('telafi_saat', 0) > 0 and now - t > 600:
+        if not self.offline and t and self.ayar('telafi_saat', 0) > 0 and now - t > 600:
             self.telafi(min(now - t, self.ayar('telafi_saat') * 3600) * self.ayar('telafi_oran', 0.35), now)
-        self.ilk_nufus(now)
+        if not self.offline:
+            self.ilk_nufus(now)
         from . import moderasyon as MOD
         MOD.sec(self)
 
@@ -438,7 +450,27 @@ class Yonetici(SohbetMotoru):
             GV.ilerlet(b, GV.KILL_NPC, n=n, npc_kimlik=kimlik, harita=b.harita, y=self)
 
     def bot_oldu(self, b, katil):
-        pass
+        """Ölüm deneyimi botun risk ve sabır dengesini değiştirir; değişimler paket kişiliğine göre kalıcı delta olarak tutulur."""
+        if not katil or str(katil).lower() == b.ad.lower():
+            return
+        rakip = self.ada.get(str(katil).lower())
+        base = next((x.get('kisilik', {}).get('ozellik', {}) for x in self.paket.get('kadro', [])
+                     if int(x.get('no', -1)) == int(b.k.get('no', -2))), {})
+        adapt = b.k.setdefault('kisilik_adaptasyon', {})
+        ozellik = b.k['kisilik'].setdefault('ozellik', {})
+        etki = 0.008 if rakip is not None else 0.003
+        degisim = {'risk': -etki, 'sabir': etki * 0.375}
+        if rakip is not None:
+            kazanan = rakip.k.setdefault('kisilik_adaptasyon', {})
+            kazanan_base = next((x.get('kisilik', {}).get('ozellik', {}) for x in self.paket.get('kadro', [])
+                                 if int(x.get('no', -1)) == int(rakip.k.get('no', -2))), {})
+            for alan, art in (('risk', 0.002), ('saldirganlik', 0.002)):
+                kazanan[alan] = round(max(-0.9, min(0.9, float(kazanan.get(alan, 0.0)) + art)), 3)
+                rakip.k['kisilik'].setdefault('ozellik', {})[alan] = round(
+                    max(0.05, min(0.95, float(kazanan_base.get(alan, 0.5)) + kazanan[alan])), 3)
+        for alan, delta in degisim.items():
+            adapt[alan] = round(max(-0.9, min(0.9, float(adapt.get(alan, 0.0)) + delta)), 3)
+            ozellik[alan] = round(max(0.05, min(0.95, float(base.get(alan, 0.5)) + adapt[alan])), 3)
 
     # ------------------------------------------------------------ sorgular
     def cevrimici_ad(self, adlar):
@@ -458,48 +490,76 @@ class Yonetici(SohbetMotoru):
             return [b.ozet() for b in self.botlar]
 
     # ------------------------------------------------------------ bot-bot PvP (soyut)
-    def pvp_tick(self, now):
-        """Her haritada düşman botlar arası karşılaşma: avdaki (pvp hedefi) ya da saldırgan bot, haritadaki düşmanlardan birini
-        bulur (olasılık nüfusla artar). Somut botlar (oyuncunun haritası) burada değil, gerçekten savaşır (govde)."""
+    def pvp_tick(self, now, elapsed=PVP_SN):
+        """Takım PvP: yakındaki müttefikler korur, ateşi yoğunlaştırır ve aralarında bağ kurar."""
         if not self.izin('pvp'):
             return
+        adim_sayisi = max(1.0, min(360.0, float(elapsed or PVP_SN) / PVP_SN))
+
+        def dost_mu(a, x):
+            if a is x:
+                return False
+            try:
+                from . import toplum as TP
+                iliski = TP.klan_iliskisi(a, x)
+                if iliski == 3:                       # klan savaşı: aynı firmada olsalar bile düşmanlar
+                    return False
+                if iliski in (1, 2):                  # ittifak ve saldırmazlık
+                    return True
+            except Exception:
+                pass
+            return a.firma == x.firma
+
         for m, s in list(self.haritada.items()):
             if m not in K.HARITALAR:
-                continue                                 # kapı haritaları: her botun kendi kopyası
-            canli = [b for b in s if b.olu_bitis <= now and b.govde is None and not b.yolda]
-            if len(canli) < 2 or not K.pvp_haritasi(m, canli[0].firma) and len({b.firma for b in canli}) < 2:
                 continue
-            firmalar = {}
-            for b in canli:
-                firmalar.setdefault(b.firma, []).append(b)
+            canli = [b for b in s if b.olu_bitis <= now and b.govde is None and not b.yolda]
+            if len(canli) < 2:
+                continue
             for a in canli:
                 if a.olu_bitis > now:
                     continue
-                av = a.hedef is not None and a.hedef.ad == 'pvp'
-                ndusman = len(canli) - len(firmalar[a.firma])     # her bot için düşman listesi kurmak yerine sayı (büyük paketlerde O(n²))
-                if not ndusman:
+                dusmanlar = [x for x in canli if x is not a and not dost_mu(a, x)]
+                if not dusmanlar:
                     continue
-                # X-1/X-2'de kendi firmasının haritasında başka firmaya saldırmak serbest; karşılaşma olasılığı
-                p = (0.12 if av else 0.006 * a.o('saldirganlik')) * min(1.0, ndusman / 3.0)
+                av = a.hedef is not None and a.hedef.ad == 'pvp'
+                p0 = (0.12 if av else 0.006 * a.o('saldirganlik')) * min(1.0, len(dusmanlar) / 3.0)
+                p = 1.0 - (1.0 - min(0.95, p0)) ** adim_sayisi
                 if a.r.random() >= p:
                     continue
-                f = a.r.choice([f for f in firmalar if f != a.firma])
-                hedef = a.r.choice(firmalar[f])
-                if a.k.get('klan'):
+                # Klan savaşı hedefleri öncelik kazanır; aynı firmadaki savaş da gerçek çatışmadır.
+                try:
                     from . import toplum as TP
-                    savas = [h for h in firmalar[f] if TP.klan_iliskisi(a, h) == 3]
-                    if savas:
-                        hedef = a.r.choice(savas)        # klan savaşı: haritadaki düşman klanın üyesi önce
-                if hedef.olu_bitis > now or a.k.get('klan') and TP.klan_iliskisi(a, hedef) in (1, 2):
+                    klan_savasi = [x for x in dusmanlar if a.k.get('klan') and x.k.get('klan')
+                                   and TP.klan_iliskisi(a, x) == 3]
+                    if klan_savasi:
+                        dusmanlar = klan_savasi
+                except Exception:
+                    pass
+                hedef = a.r.choice(dusmanlar)
+                dost_a = [x for x in canli if dost_mu(a, x) and x.olu_bitis <= now]
+                dost_b = [x for x in canli if dost_mu(hedef, x) and x.olu_bitis <= now]
+                # Sayıca üstün düşman desteği, çok cesur veya öfkeli olmayan yalnız avcıyı caydırabilir.
+                if len(dost_b) > len(dost_a) + 1 and a.r.random() > a.o('risk') * 0.65 + 0.15:
                     continue
                 oran = hedef.deger()['guc'] / max(0.5, a.deger()['guc'])
                 if not av and oran > 0.9 + 0.6 * a.o('risk'):
-                    continue                     # avda değilken güçlüye saldırmaz
+                    continue
                 if oran > 1.6 + a.o('risk') + a.ruh['ofke']:
-                    continue                     # avda bile çok güçlüye saldırmaz
-                sonuc = S.karsilasma(a, hedef, self, now)
-                if sonuc and sonuc[0] == 'kazandi' and sonuc[1].k.get('gorev'):
-                    GV.ilerlet(sonuc[1], GV.KILL_PLAYERS, harita=sonuc[1].harita, y=self)
+                    continue
+                rol_puani = {'tank': 1.0, 'dps': 1.15, 'destek': 1.2, 'kesif': 0.8, 'denge': 1.0}
+                guc_a = min(3.0, sum(rol_puani.get(KS.rol(x.k['kisilik']), 1.0) for x in dost_a))
+                guc_b = min(3.0, sum(rol_puani.get(KS.rol(x.k['kisilik']), 1.0) for x in dost_b))
+                sonuc = S.karsilasma(a, hedef, self, now, wsparcie_a=guc_a, wsparcie_b=guc_b)
+                if sonuc and sonuc[0] == 'kazandi':
+                    zwyciezca = sonuc[1]
+                    ekipa = dost_a if zwyciezca is a else dost_b
+                    for sojusznik in ekipa[:3]:
+                        sojusznik.hafiza.olay(zwyciezca.ad, 'birlikte_avlandik', now, kat=0.5)
+                        zwyciezca.hafiza.olay(sojusznik.ad, 'yardim_etti', now, kat=0.4)
+                        sojusznik.ruh.it(moral=0.025)
+                    if zwyciezca.k.get('gorev'):
+                        GV.ilerlet(zwyciezca, GV.KILL_PLAYERS, harita=zwyciezca.harita, y=self)
 
     # ------------------------------------------------------------ hızlı ilerletme
     def hizli(self, b, saniye, now, adim=900.0, pvp=False):
@@ -522,9 +582,8 @@ class Yonetici(SohbetMotoru):
             if self.izin('magaza'):
                 for _ in range(8):           # büyük adımda biriken parayı harcar (gerçek zamanda ayrı kararlar)
                     c = ALIS.aday(b)[0]
-                    if c is None or not b.ode(c[1], c[2]):
+                    if c is None or not ALIS.satin_al(b, c):
                         break
-                    b.ekle(c[3])
             b.ruh.d['yorgunluk'] = 0.0
         b.cevrimici = False
         b.hedef = None
@@ -544,17 +603,70 @@ class Yonetici(SohbetMotoru):
             self.hizli(b, saat * 3600, now, adim=max(1800.0, saat * 3600 / 60))
         self.log('   botlar: jumpstart %d bot, %.1f sn' % (len(botlar), time.time() - t0))
 
-    def telafi(self, saniye, now):
-        """Oyuncu yokken geçen sürenin bir kısmı: çevrimiçi olma eğilimi kadar bot ilerler."""
+    def telafi(self, saniye, now, offline_tick=None):
+        """Oyuncu yokken geçen süreyi ilerlet: bireysel aktiflik, PvP, sosyal kararlar ve klan ilişkileri.
+        offline_tick: varsa sanal zamanın dakikalık adımlarında CBS gibi kalıcı dünya işlerini ilerletir."""
         t0 = time.time()
+        baslangic = now - max(0.0, float(saniye))
+        yeni_kayitlar = {}
+        # Progressive kadro çevrimdışıyken de normal sunucu gibi zamanla kayıt olur.
+        # sinir=0: canlı oturum açmayız; kayıt olduktan sonra aşağıda soyut ilerleme uygulanır.
+        while True:
+            siralar = [self.sonraki_kayit.get(f, float('inf')) for f, sira in self.kayit_sirasi.items() if sira]
+            if not siralar:
+                break
+            due = min(siralar)
+            if due > now:
+                break
+            once = {b.k['no'] for b in self.botlar if not b.kayitli}
+            self.now = due
+            self.kayit_tick(due, 0, 0)
+            for b in self.botlar:
+                if b.k['no'] in once and b.kayitli:
+                    yeni_kayitlar[b.k['no']] = due
         for b in self.botlar:
             if not b.kayitli:
                 continue
+            etkin_sure = max(0.0, now - max(baslangic, yeni_kayitlar.get(b.k['no'], baslangic)))
+            if etkin_sure <= 0:
+                continue
             pay = sum(KS.ALISKANLIKLAR[b.k['kisilik']['aliskanlik']][1]) / 24.0 * self.ayar('cevrimici_oran', 0.6)
-            s = saniye * pay * b.r.uniform(0.5, 1.5)
-            if s > 300:
+            s = etkin_sure * pay * b.r.uniform(0.5, 1.5)
+            if s > 0:
                 self.hizli(b, s, now, adim=900.0)
-        self.log('   botlar: çevrimdışı telafi %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
+        if self.kip == 'basit':
+            # Basit kip yalnızca sabit haritasındaki PvE etkinliğini simüle eder; sosyal/PvP/CBS stratejisi yoktur.
+            self.haritada = {}
+        else:
+            # Geçici çevrimiçi nüfus: takım PvP'si ve botların sosyal/klan kararları aynı çevrimdışı adımda yürür.
+            self.haritada = {}
+            gecici = []
+            for b in self.botlar:
+                if not b.kayitli:
+                    continue
+                pay = sum(KS.ALISKANLIKLAR[b.k['kisilik']['aliskanlik']][1]) / 24.0 * self.ayar('cevrimici_oran', 0.6)
+                if b.r.random() < max(0.0, min(0.95, pay)):
+                    b.cevrimici = True
+                    self.haritada.setdefault(b.harita, set()).add(b)
+                    gecici.append(b)
+            try:
+                self.pvp_tick(now, elapsed=max(PVP_SN, saniye))
+                # Offline adımları duvar saatinden yavaştır; sosyal kararları da bu sanal zaman içinde
+                # dakikalık aralıklarla çalıştır ki klan başvuruları, diplomasi ve CBS kararları atlanmasın.
+                sanal = now - saniye
+                while sanal < now:
+                    sanal = min(now, sanal + 60.0)
+                    self.now = sanal
+                    self._toplum_tick(sanal)
+                    if offline_tick is not None:
+                        offline_tick(sanal)
+            finally:
+                for b in gecici:
+                    b.cevrimici = False
+                self.haritada = {}
+        self.now = now
+        self.log('   botlar: çevrimdışı simülasyon %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
+
 
 
 def sunucu(yol, log=print):

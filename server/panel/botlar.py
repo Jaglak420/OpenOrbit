@@ -28,7 +28,7 @@ AYARLAR = {
     'hiz': ('sayi', 0.1, 20.0, 1.0),
     'cevrimici_oran': ('sayi', 0.05, 2.0, 0.6),
     'en_cok_cevrimici': ('tam', 0, 3000, 0),
-    'telafi_saat': ('tam', 0, 48, 4),
+    'telafi_saat': ('tam', 0, 150, 150),
     'telafi_oran': ('sayi', 0.0, 1.0, 0.35),
     'kayit_sn': ('tam', 0, 300, 15),
     'jumpstart_saat': ('tam', 1, 2000, 60),
@@ -555,6 +555,19 @@ def canli(pid):
     return d.get('t'), {int(k): v for k, v in (d.get('botlar') or {}).items()}
 
 
+def offline_ozet(pid, paket=None):
+    """Offline simülasyonunun bu kapalı oyun dönemi için kullandığı süre ve ayarlanan sınır."""
+    paket = paket or oku(pid)
+    a = paket.get('ayarlar') or {}
+    limit = max(0, min(150, int(a.get('telafi_saat', 150) or 0)))
+    meta = _oku_dosya(os.path.join(os.path.dirname(durum_yolu(pid)), 'offline.json')) or {}
+    used = max(0.0, float(meta.get('used_seconds') or 0.0))
+    used_h = min(float(limit), used / 3600.0)
+    return {'uzyte_godziny': round(used_h, 1), 'limit_godzin': limit,
+            'procent': round(100 * used_h / limit) if limit else 0,
+            'pauza': bool(meta.get('paused', False))}
+
+
 def ozet(pid):
     d = oku(pid)
     t, c = canli(pid)
@@ -563,7 +576,7 @@ def ozet(pid):
     return {'id': pid, 'ad': d['ad'], 'aciklama': d.get('aciklama', ''), 'dunya': d.get('dunya'), 'kip': d['kip'],
             'gelisim': d.get('gelisim'), 'adet': len(d['kadro']), 'firmalar': firmalar, 'guncelleme': d.get('guncelleme'),
             'son_oyun': t, 'seviye_ort': round(sum(seviyeler) / len(seviyeler), 1) if seviyeler else None,
-            'seviye_enb': max(seviyeler) if seviyeler else None}
+            'seviye_enb': max(seviyeler) if seviyeler else None, 'offline': offline_ozet(pid, d)}
 
 
 def liste():
@@ -629,6 +642,7 @@ def klanlar(pid):
 def ayrinti(pid):
     """Paket + kadronun canlı durumu (son kayıttan)."""
     import harita as H
+    from bot import kisilik as KS
     d = oku(pid)
     t, c = canli(pid)
     rows = []
@@ -636,7 +650,7 @@ def ayrinti(pid):
         s = c.get(x['no'], {})
         e = s.get('ekip') or {}
         rows.append({'no': x['no'], 'ad': x['ad'], 'firma': x['firma'], 'arketip': x['kisilik']['arketip'],
-                     'aliskanlik': x['kisilik'].get('aliskanlik'), 'dil': x['kisilik'].get('dil'),
+                     'rol': KS.rol(x['kisilik']), 'aliskanlik': x['kisilik'].get('aliskanlik'), 'dil': x['kisilik'].get('dil'),
                      'ad_dili': x['kisilik'].get('ad_dili') or x['kisilik'].get('dil'),
                      'ozellik': x['kisilik']['ozellik'], 'seviye': s.get('seviye', 1), 'gemi': e.get('gemi', 'ship_phoenix'),
                      'harita': s.get('harita'), 'harita_ad': H.name(s['harita']) if s.get('harita') else '', 'klan': s.get('klan'), 'hedef': s.get('hedef'), 'istat': s.get('istat') or {},

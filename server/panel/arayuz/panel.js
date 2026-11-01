@@ -561,14 +561,15 @@ function drawArkadas() {
   const v = ARK.veri, d = S.durum;
   if (!ARK.sekme) ARK.sekme = v.misafir.durum !== 'yok' ? 'join' : 'host';
   if (ARK.adres == null) ARK.adres = v.misafir.son_adres || '';
-  const tabs = h('div', { class: 'seg' }, [['host', T('Sunucu kur (Host)')], ['join', T('Arkadaşına katıl (Join)')]].map(([k, t]) =>
+  const tabs = h('div', { class: 'seg' }, [['host', T('Sunucu kur (Host)')], ['join', T('Arkadaşına katıl (Join)')],
+    ['zapisy', T('Arkadaş kayıtları')]].map(([k, t]) =>
     h('button', { class: ARK.sekme === k ? 'on info' : '', onclick: () => { ARK.sekme = k; drawArkadas(); } }, t)));
-  $('#content').replaceChildren(h('div', { class: 'stack', id: 'arkadas' }, h('div', { class: 'row' }, tabs),
-    ...(ARK.sekme === 'host' ? hostView(v) : joinView(v))));
+  const widok = ARK.sekme === 'host' ? hostView(v) : ARK.sekme === 'join' ? joinView(v) : friendSavesView(v);
+  $('#content').replaceChildren(h('div', { class: 'stack', id: 'arkadas' }, h('div', { class: 'row' }, tabs), ...widok));
   S.sig.arkMode = arkMode(v, d); S.sig.arkDyn = arkDyn(v);
 }
 const arkMode = (v, d) => JSON.stringify([ARK.sekme, v.host.acik, v.misafir.durum, d?.oyna, srvState(d), v.kayitlar.map(k => k.id), d?.aktif?.id]);
-const arkDyn = v => JSON.stringify([v.host.misafirler, v.misafir.adimlar, v.misafir.son_esitleme, v.misafir.baglanti, v.misafir.not, v.host.genel_ip]);
+const arkDyn = v => JSON.stringify([v.host.misafirler, v.misafir.adimlar, v.misafir.son_esitleme, v.misafir.baglanti, v.misafir.not, v.host.genel_ip, v.zapisy_znajomych]);
 async function arkTick() {
   if (S.arkBusy) return;
   S.arkBusy = true;
@@ -576,9 +577,16 @@ async function arkTick() {
   try { v = await api('/api/arkadas'); } catch (e) { return; } finally { S.arkBusy = false; }
   if (S.page !== 'arkadas') return;
   ARK.veri = v;
+  if (typeof KE !== 'undefined' && KE.slot && KE.from === 'arkadas') {
+    const k = (v.zapisy_znajomych || []).find(x => x.id === KE.slot);
+    const busy = !k || !!k.kullanimda;
+    if (KE.v && !!KE.v.salt_okunur !== busy) { KE.v = null; renderEditor(); }
+    return;
+  }
   if (arkMode(v, S.durum) !== S.sig.arkMode) return drawArkadas();
   if (arkDyn(v) === S.sig.arkDyn) return;
   S.sig.arkDyn = arkDyn(v);
+  if (ARK.sekme === 'zapisy') return drawArkadas();
   const g = $('#ark-misafirler'); if (g) g.replaceWith(guestsCard(v.host));
   const j = $('#ark-join-durum'); if (j) j.replaceWith(joinStatus(v));
 }
@@ -625,7 +633,7 @@ function hostView(v) {
   else main = h('button', { class: 'play-btn', disabled: !d?.aktif || guest || (running && !hs.acik), onclick: () => act(() => api('/api/arkadas/host', {})) },
     icon(hs.acik ? 'play' : 'users'), hs.acik ? T('OYNA') : T('SUNUCU KUR'));
   if (hs.acik) sub.push(btn(T('Sunucuyu kapat'), async () => {
-    if (hs.misafirler.length && !await confirmBox(T('Sunucu kapatılsın mı?'), T('Bağlı misafirler oyundan düşer; kayıtları kendi bilgisayarlarında son hâliyle kalır.'),
+    if (hs.misafirler.length && !await confirmBox(T('Sunucu kapatılsın mı?'), T('Bağlı misafirler oyundan düşer. Ana kayıtlar bu bilgisayarda, yerel kopyalar da kendi bilgisayarlarında kalır.'),
       { ok: T('Kapat'), danger: true })) return;
     act(() => api('/api/sunucu/durdur', {}), T('Sunucular durduruldu.'));
   }, 'danger sm', 'stop', { disabled: running || busy }));
@@ -684,7 +692,7 @@ function hostView(v) {
     h('div', { class: 'check-list' }, [N('Firma, savaş ve Blacklight haritaları (1-1 … 5-4, BL) ortak: uzaylılar, kutular ve cevherler paylaşılır, birbirinizi görürsünüz.'),
       N('Kapı, mod ve etkinlik haritaları herkesin kendi kopyası.'), N('Sohbet ortak; posta, klan ve müzayede her oyuncunun kendisinin.'),
       N('Oyun ayarların (çarpanlar, etkinlikler) misafirlerine de uygulanır.'),
-      N('Misafirlerin kaydı bu bilgisayara yazılmaz, Kayıtlar sayfasında görünmez: ilerlemeleri kendi bilgisayarlarına kaydedilir.'),
+      N('Misafir kayıtları bu bilgisayarda ayrı ana kopyalar olarak saklanır; Arkadaş kayıtları sekmesinden düzenleyebilir ve yedeklerini yönetebilirsin.'),
       N('Oyuncular birbirine saldıramaz (PvP yok).')].map(t => h('div', null, icon('check'), h('span', null, T(t))))));
   return [hero, steps ? h('div', { class: 'card' }, h('h2', null, icon('zap'), T('Sunucu başlatma')), steps) : null, guestsCard(hs),
     h('div', { class: 'grid g2' }, addrCard, setCard), h('div', { class: 'grid g2' }, portCard, share)].filter(Boolean);
@@ -698,10 +706,31 @@ function guestsCard(hs) {
       h('tbody', null, hs.misafirler.map(g => h('tr', null, h('td', null, h('b', null, g.ad)), h('td', null, g.seviye), h('td', null, g.harita || '—'),
         h('td', { class: 'mono' }, g.ip), h('td', null, g.bagli ? badge(T('Oyunda'), 'ok') : badge(T('Bağlı değil'), '')), h('td', null, fmtDur(now - g.giris)),
         h('td', { class: 'num' }, btn(T('Çıkar'), async () => {
-          if (await confirmBox(T('{0} çıkarılsın mı?', g.ad), T('Bağlantısı kapanır. Kaydı kendi bilgisayarında son hâliyle kalır.'), { ok: T('Çıkar'), danger: true }))
+          if (await confirmBox(T('{0} çıkarılsın mı?', g.ad), T('Bağlantısı kapanır; son profil ana kayda yazılır ve arkadaşının yerel kopyası da son hâline eşitlenir.'), { ok: T('Çıkar'), danger: true }))
             act(() => api('/api/arkadas/at', { oturum: g.oturum }), T('{0} çıkarıldı.', g.ad));
         }, 'ghost sm', 'x')))))) :
       h('p', { class: 'desc' }, T('Henüz misafir yok. Arkadaşların Arkadaşlarınla Oyna > Arkadaşına katıl bölümünde adresini yazıp bağlanır.')));
+}
+
+
+// ---- Arkadaş kayıtları: główne kopie przechowywane na komputerze hosta.
+function friendSavesView(v) {
+  const saves = v.zapisy_znajomych || [];
+  const header = h('div', { class: 'card' }, h('h2', null, icon('save'), T('Arkadaş kayıtları')),
+    h('p', { class: 'desc', style: { margin: '8px 0 0' } },
+      T('Bu kayıtlar bu bilgisayarda saklanan ana kopyalardır. Arkadaşın bir sonraki bağlantısında bu sürümü alır.')));
+  if (!saves.length) return [header, h('div', { class: 'card empty' }, art('dron_kayit'), h('h3', null, T('Henüz arkadaş kaydı yok')),
+    h('p', null, T('Arkadaşın sunucuna ilk kez katıldığında kaydı burada görünür.')))];
+  const cards = saves.map(k => h('div', { class: 'card', style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
+    h('div', { class: 'row between wrap' },
+      h('div', null, h('h2', null, k.pilot || k.ad), h('div', { class: 'small muted' }, (k.firma || '?') + ' · ' + lvl(k.seviye) + ' · ' + (k.harita || '—'))),
+      badge(k.kullanimda ? T('Oyunda — düzenleme kilitli') : T('Host bilgisayarında'), k.kullanimda ? 'warn' : 'ok')),
+    h('div', { class: 'kv' }, [[T('Son kayıt'), fmtWhen(k.son_kayit)], [T('Boyut'), fmtBytes(k.boyut)],
+      [T('Yedekler'), fmtN(k.yedek_sayisi || 0)]].map(([a,b]) => h('div', null, h('span', null, a), h('b', null, b)))),
+    h('div', { class: 'row wrap', style: { marginTop: 'auto' } },
+      btn(T('Kaydı düzenle'), () => keAc({ id: k.id, ad: k.ad }, 'arkadas'), 'primary sm', 'edit', { disabled: !!k.kullanimda }),
+      btn(T('Yedekler'), () => backupsModal(k.id), 'sm ghost', 'clock'))));
+  return [header, h('div', { class: 'grid g2', id: 'ark-zapisy' }, cards)];
 }
 
 // ---- Join
@@ -754,14 +783,14 @@ function joinStatus(v) {
     stepList(m.adimlar),
     m.not ? h('div', { class: 'alert uyari', style: { marginTop: '10px' } }, icon('alert'), h('div', null, m.not)) : null,
     h('div', { class: 'row', style: { marginTop: '14px' } }, btn(T('Ayrıl'), async () => {
-      if (await confirmBox(T('Arkadaşının sunucusundan ayrılınsın mı?'), T('Oyun kapanır, kaydının son hâli bu bilgisayara yazılır.'), { ok: T('Ayrıl'), danger: true }))
+      if (await confirmBox(T('Arkadaşının sunucusundan ayrılınsın mı?'), T('Oyun kapanır; yerel kopyan bu bilgisayara kaydedilir, ana kopya host bilgisayarında kalır.'), { ok: T('Ayrıl'), danger: true }))
         act(() => api('/api/arkadas/ayril', {})).then(() => arkTick());
     }, 'danger', 'power', { disabled: m.durum === 'ayriliyor' }), h('span', { class: 'small muted' }, T('Oyunu kapatınca da ayrılırsın.'))));
 }
 const joinInfo = () => h('div', { class: 'card' }, h('h2', null, icon('info'), T('Kaydın nerede?')),
   h('div', { class: 'check-list' }, [N('Katılmadan önce kaydın yedeklenir (Kayıtlar > Yedekler).'),
     N('Oyun sürerken ilerlemen birkaç saniyede bir bu bilgisayardaki kaydına yazılır; ayrılınca son hâli kaydedilir.'),
-    N('Arkadaşının bilgisayarına kaydın yazılmaz, onun Kayıtlar sayfasında görünmez.'),
+    N('Ana kayıt arkadaşının sunucu bilgisayarında saklanır. Yerel kopyan da eşitlenir; sonraki girişte host sürümü esas alınır.'),
     N('Arkadaşının oyun ayarları (çarpanlar, etkinlikler) onun sunucusunda geçerlidir.'),
     N('Arkadaşının sunucusu: TCP 8081 (oyun) ve 7771 (sohbet) portları ona açık olmalı.')].map(t => h('div', null, icon('check'), h('span', null, T(t))))));
 

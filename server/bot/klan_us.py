@@ -256,7 +256,7 @@ def yaris_adimi(y, b, k, h, asts, now):
             eksik.remove(l)
     if not eksik:
         dk = b.r.randint(*ayar()['kurma_dk'])
-        if CB.bot_kur(int(aid), k, r['moduller'], dk, log=y.log):
+        if CB.bot_kur(int(aid), k, r['moduller'], dk, log=y.log, now=now):
             s['hedef'] = None
             b.olay('ksi_kuruyor', now, istasyon=CB.AST[int(aid)]['ad'])
         return

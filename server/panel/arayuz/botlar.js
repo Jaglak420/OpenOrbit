@@ -23,6 +23,7 @@ const BT_KIPLER = {
   gelismis: { ad: N('Gelişmiş'), ic: 'brain', ozet: N('Normal kipin üstüne dil modeli (dahili Qwen3 4B, OpenAI, Claude, Gemini ya da kendi yerel LLM\'in): botlar seninle ve birbirleriyle gerçekten konuşur, ricalarını düşünüp karar verir, yardım çağrılarına gelir.') },
 };
 const BT_ARKETIP = { kasici: N('PvE kasıcı'), avci: N('PvP avcısı'), sosyal: N('Sosyal'), tuccar: N('Tüccar'), gorevci: N('Görevci'), rahat: N('Rahat'), lider: N('Lider') };
+const BT_ROL = { tank: N('Tank'), dps: N('Hasar'), destek: N('Destek'), kesif: N('Keşif'), denge: N('Dengeli') };
 const BT_HEDEF = { kasilma: N('Uzaylı kasıyor'), gorev: N('Görev yapıyor'), pvp: N('PvP avında'), alisveris: N('Alışverişte'), dinlenme: N('Dinleniyor'),
   kesif: N('Keşifte'), grup: N('Grupta'), yardim: N('Yardıma gidiyor'), basit: N('Uzaylı kasıyor'), satis: N('Kargo satıyor'),
   mod: N('Modda'), kapi: N('Galaksi kapısında'), duello: N('Düelloda') };
@@ -350,7 +351,31 @@ function btGenel(d) {
     btYama({ kip: v });
   };
   const fg = a.firma_guc || [1, 1, 1];
-  return h('div', { class: 'stack' },
+  const hedefler = {}, haritalar = {};
+  (d.kadro || []).forEach(b => {
+    if (b.hedef) hedefler[b.hedef] = (hedefler[b.hedef] || 0) + 1;
+    if (b.harita_ad) haritalar[b.harita_ad] = (haritalar[b.harita_ad] || 0) + 1;
+  });
+  const off = d.offline || { uzyte_godziny: 0, limit_godzin: a.telafi_saat || 0, procent: 0 };
+  const sumaStacji = (d.klanlar || []).reduce((n, k) => n + (k.istasyonlar || []).length, 0);
+  const swiat = h('div', { class: 'card' }, h('h2', null, icon('globe'), T('Canlı dünya — genel bakış')),
+    h('div', { class: 'grid g2' },
+      [['Paketteki botlar', d.adet], ['Bot klanları', (d.klanlar || []).length], ['CBS istasyonları', sumaStacji],
+       ['Ortalama seviye', d.seviye_ort == null ? '—' : d.seviye_ort]].map(([k, v]) =>
+        h('div', { class: 'kv' }, h('span', null, T(k)), h('b', null, v)))),
+    Object.keys(hedefler).length ? h('div', { class: 'small muted', style: { marginTop: '10px' } },
+      T('En sık yapılan işler: {0}', Object.entries(hedefler).sort((x, y) => y[1] - x[1]).slice(0, 5)
+        .map(([k, n]) => T(BT_HEDEF[k] || k) + ' ' + n).join(' · '))) : null,
+    Object.keys(haritalar).length ? h('div', { class: 'small muted', style: { marginTop: '6px' } },
+      T('En sık ziyaret edilen haritalar: {0}', Object.entries(haritalar).sort((x, y) => y[1] - x[1]).slice(0, 5)
+        .map(([k, n]) => k + ' ' + n).join(' · '))) : null);
+  const offlineCard = h('div', { class: 'card' }, h('h2', null, icon('clock'), T('Çevrimdışı simülasyon')),
+    h('div', { class: 'row between wrap' },
+      h('span', { class: 'small muted' }, off.limit_godzin ? T('{1} saatin {0} saati kullanıldı', off.uzyte_godziny, off.limit_godzin) : T('Simülasyon kapalı')),
+      badge(off.limit_godzin ? T('Ara başına en çok {0} saat', off.limit_godzin) : T('Kapalı'), '')),
+    h('div', { class: 'meter', style: { marginTop: '10px' } },
+      h('div', { class: 'meter-bar' }, h('span', { style: { width: Math.max(0, Math.min(100, off.procent || 0)) + '%' } })))); 
+  return h('div', { class: 'stack' }, swiat, offlineCard,
     h('div', { class: 'card' }, h('h2', null, icon('edit'), T('Paket')),
       btSatir(T('Ad'), null, ad), btSatir(T('Açıklama'), null, acik),
       btSatir(T('Kip'), T(BT_KIPLER[d.kip].ozet), btSeg(['basit', 'normal', 'gelismis'].map(k => [k, T(BT_KIPLER[k].ad)]), d.kip, kipSec)),
@@ -363,8 +388,10 @@ function btGenel(d) {
       btSatir(T('Çevrimiçi olma eğilimi'), T('Botların oyun saatlerine göre çevrimiçi olma isteği; yüksekse aynı anda daha çok bot.'),
         btKaydirac(a.cevrimici_oran, v => btA('cevrimici_oran', v), { min: 0.05, max: 2, step: 0.05, fmt: v => '%' + Math.round(v * 100) })),
       btSatir(T('Aynı anda en çok çevrimiçi'), T('0: sınırsız.'), btSayi(a.en_cok_cevrimici, v => btA('en_cok_cevrimici', v), { min: 0, max: 3000 })),
-      btSatir(T('Sen yokken ilerleme (saat)'), T('Oyuna dönünce geçen sürenin en çok bu kadarı benzetilir. 0: botlar yalnız sen oynarken ilerler.'),
-        btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 48 })),
+      btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Oyun istemcisi ve oyun sunucusu kapalıyken OpenOrbit paneli açık kaldığı sürece botların yaşamı simüle edilir. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.'),
+        btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 150 })),
+      btSatir(T('Çevrimdışı simülasyon hızı'), T('Çevrimdışı simülasyondaki ilerleme hız çarpanı.'), 
+        btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) })),
       d.gelisim !== 'jumpstart' ? btSatir(T('Yeni pilot kaydı (saniye)'), T('Progressive: her firmaya ortalama bu kadar saniyede bir yeni pilot kayıt olup oyuna başlar (yeni açılmış bir sunucu gibi; hepsi aynı anda doğmaz). 0: hepsi baştan kayıtlı.'),
         btSayi(a.kayit_sn ?? 15, v => btA('kayit_sn', v), { min: 0, max: 300 })) : null,
       btSatir(T('Firmaların gücü'), T('Firmanın botlarının gelişim çarpanı (1 eşit).'), h('div', { class: 'row', style: { gap: '8px' } }, btFirma.map((x, i) =>
@@ -435,6 +462,7 @@ function btKadroTablosu(kadro) {
       h('div', { class: 'bt-pilot-ad' }, h('a', { href: '#', class: 'bt-ad', onclick: e => e.preventDefault() }, b.ad),
         b.ozel ? h('span', { class: 'badge info bt-ozel-rozet', title: T('Kendi eklediğin bot') }, T('Özel')) : null),
       h('div', { class: 'bt-pilot-alt' }, h('span', { class: 'bt-firma-et' }, f), T(BT_ARKETIP[b.arketip] || b.arketip),
+        badge(T(BT_ROL[b.rol] || b.rol || 'Dengeli'), 'info'),
         h('span', { class: 'dim' }, btOzellikOzeti(b.ozellik))));
     if (k === 'seviye') return h('b', { class: 'bt-sv' }, n);
     if (k === 'rutbe') return btRutbe(n || 1, 22);
@@ -578,9 +606,15 @@ function btModerasyon(d) {
 function btBasit(d) {
   const a = JSON.parse(JSON.stringify(d.ayarlar));
   const kaydet = () => btYama({ ayarlar: { basit_haritalar: a.basit_haritalar, basit_guc: a.basit_guc, basit_dost: a.basit_dost } });
-  return h('div', { class: 'card' }, h('h2', null, icon('bot'), T('Basit kip')),
-    h('p', { class: 'desc' }, T('Botlar haritalara seviyelerine göre dağıtılır ve orada kalır: uzaylı keser, düşmansa seni görünce gücüne göre saldırır ya da kaçar, ölünce aynı haritada doğar.')),
-    btBasitAyar(a, null, false, kaydet));
+  return h('div', { class: 'stack' },
+    h('div', { class: 'card' }, h('h2', null, icon('bot'), T('Basit kip')),
+      h('p', { class: 'desc' }, T('Botlar haritalara seviyelerine göre dağıtılır ve orada kalır: uzaylı keser, düşmansa seni görünce gücüne göre saldırır ya da kaçar, ölünce aynı haritada doğar.')),
+      btBasitAyar(a, null, false, kaydet)),
+    h('div', { class: 'card' }, h('h2', null, icon('clock'), T('Çevrimdışı simülasyon')),
+      btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Panel açıkken oyun kapalı olduğu sürece basit botlar kendi haritalarında PvE ilerlemesi yapar. 0 kapatır; tek bir ara için en çok 150 saat.'),
+        btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 150 })),
+      btSatir(T('Çevrimdışı simülasyon hızı'), T('Basit botların çevrimdışı PvE ilerleme hızı.'),
+        btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) }))));
 }
 
 // botun son düşüncesi (modelin kendi notu, İngilizce); tıklayınca editörün Düşünceler ya da Hafıza bölümü (bot/ani.py, bot/ajan.py)

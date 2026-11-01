@@ -51,6 +51,26 @@ def sinirla(v, a=0.0, b=1.0):
     return a if v < a else b if v > b else v
 
 
+def rol(kisilik):
+    """Kişilik ve arketipten takım rolü: tank, dps, destek, keşif ya da dengeli."""
+    kisilik = kisilik or {}
+    o = kisilik.get('ozellik') or {}
+    arketip = kisilik.get('arketip')
+    risk = float(o.get('risk', 0.5))
+    sabir = float(o.get('sabir', 0.5))
+    saldirganlik = float(o.get('saldirganlik', 0.5))
+    yardim = float(o.get('yardimseverlik', 0.5))
+    if arketip in ('lider', 'sosyal') or yardim >= 0.78:
+        return 'destek'
+    if arketip == 'avci' or saldirganlik >= 0.78:
+        return 'dps'
+    if arketip == 'kasici' or (sabir >= 0.72 and risk <= 0.42):
+        return 'tank'
+    if risk >= 0.72 and sabir <= 0.48:
+        return 'kesif'
+    return 'denge'
+
+
 # ------------------------------------------------------------------------------------------------------------ adlar
 _LEET = {'a': '4', 'e': '3', 'i': '1', 'o': '0', 's': '5', 't': '7'}
 _SAYILAR = ('1', '7', '13', '23', '34', '35', '06', '16', '41', '42', '61', '69', '77', '88', '99', '007', '123', '1903', '1905',

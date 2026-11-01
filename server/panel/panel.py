@@ -51,6 +51,7 @@ from arkadas import Arkadas, ArkadasHatasi  # noqa: E402
 from coklu import Coklu, CokluHatasi  # noqa: E402
 import dunyalar as DW          # noqa: E402
 import botlar as BT            # noqa: E402  (Botlar sayfası: bot paketleri)
+from bot_offline import SymulacjaOffline
 import llm_kurulum as LLMK     # noqa: E402  (Gelişmiş bot kipinin dil modeli)
 import discord_rp as DRP       # noqa: E402  (Discord Rich Presence)
 from bot import llm_saglayici as SG  # noqa: E402  (dil modelinin sağlayıcısı: dahili ya da kullanıcının seçtiği)
@@ -146,7 +147,7 @@ YON = SR.Yonetici(YOL.LOGS, log)
 KAY = Kayitlar(CFG, python=SR.python_exe())
 ARK = Arkadas(CFG, KAY, YON, log, SURUM)                        # Arkadaşlarınla Oyna: Host ve Join (arkadas.py)
 COK = Coklu(CFG, KAY, YON, lambda: ARK.anahtar, YOL.LOGS, log)  # çoklu istemci: öteki kayıtlarla ek istemciler (coklu.py)
-KAY.in_use = lambda slot: (YON.running() and YON.slot == slot) or ARK.kullanimda(slot) or COK.kullanimda(slot)
+KAY.in_use = lambda slot: (YON.running() and YON.slot == slot) or ARK.kullanimda(slot) or ARK.zapis_kullanimda(slot) or COK.kullanimda(slot)
 UYAR = Uyarlayici(ROOT, SR.python_exe(), log, SR.NO_WINDOW)    # yeni istemciye protokol uyarlaması (protokol.py)
 UPD = Guncelleyici(ROOT, YOL.SAVE, log)                          # GitHub'dan güncelleme (guncelleme.py)
 MOT = CAL.motor()                                                # macOS: panelin kurduğu Wine + DXMT (wine_motoru.py)
@@ -156,6 +157,28 @@ TOKEN = secrets.token_hex(16)
 STATE = {'oyna': {'calisiyor': False, 'adimlar': [], 'hata': None, 'bitti': None, 'sadece_sunucu': False},
          'nabiz': time.monotonic(), 'pencere_kapandi': False, 'pencere_izleniyor': False, 'son_yedek': 0.0, 'kapaniyor': False,
          'sonraki_denetim': time.time() + 8, 'guncellendi': '--guncellendi' in sys.argv, 'srv': None, 'acilis': time.time()}
+
+def bot_offline_aktif():
+    """Offline simülatörü yalnızca oyun sunucusu, istemciler ve başlatma tamamen durmuşken çalışır."""
+    return not (YON.running() or YON.client_alive() or IST.running_clients() or STATE['oyna']['calisiyor']
+                or ARK.aktif() or COK.canli() or STATE['kapaniyor'])
+
+
+def bot_offline_profil(pid):
+    """Bot paketinin dünyası etkin kayda aitse ortak klan/CBS profilini offline bağla."""
+    slot = KAY.active()
+    if not slot:
+        return None
+    try:
+        paket = BT.oku(pid)
+        if paket.get('kip') == 'basit' or paket.get('dunya') != (world_id(slot, False) or DW.STANDART):
+            return None
+        return KAY.profile(slot)
+    except Exception:
+        return None
+
+
+OFFLINE_BOTLAR = SymulacjaOffline(BT, bot_offline_aktif, log, bot_offline_profil)
 
 
 def rp_kaynak():
@@ -690,6 +713,7 @@ def _step(text, durum='calisiyor'):
 def launch(sadece_sunucu=False, arkadas=False):
     o = STATE['oyna']
     try:
+        OFFLINE_BOTLAR.pauza()                 # önce tüm çevrimdışı bot kayıtlarını yaz, ardından oyun sunucusunu aç
         _step(_('Denetleniyor'))
         if ARK.aktif():
             raise Hata(_('Arkadaşının sunucusundasın: önce oradan ayrıl.'))
@@ -785,6 +809,7 @@ def start_launch(sadece_sunucu=False, arkadas=False):
 
 def join_friend(b):
     """Arkadaşlarınla Oyna > Join: denetimler panelde (istemci, açık oyun ve sunucular), katılma arka planda (arkadas.py)."""
+    OFFLINE_BOTLAR.pauza()
     if STATE['oyna']['calisiyor']:
         raise Hata(_('Başlatma sürüyor.'))
     slot = str(b.get('kayit') or '') or KAY.active()
@@ -866,7 +891,9 @@ def ticker():
     while not STATE['kapaniyor']:
         time.sleep(5)
         try:
-            update_tick(time.time())
+            now = time.time()
+            OFFLINE_BOTLAR.tick(now)
+            update_tick(now)
             iv = CFG.get('yedek_aralik_dk')
             if YON.client_alive() and YON.slot and iv and time.time() - STATE['son_yedek'] >= iv * 60:
                 KAY.backup(YON.slot, 'oto', _('Oyun sırasında'))
@@ -894,6 +921,7 @@ def istemci_bekle(sn=8):
 def shutdown():
     if STATE['kapaniyor']:
         return
+    OFFLINE_BOTLAR.pauza()
     STATE['kapaniyor'] = True
     log('panel kapanıyor')
     try:
@@ -1547,10 +1575,12 @@ def h_get(path, q):
         import takvim as TK
         d['etkinlik_adlari'] = [_(TK.EVENTS.get(k, {}).get('ad', k)) for k in d.get('etkinlikler', [])]
         return {'var': True, 'sunucu_acik': True, 'yas': max(0, time.time() - d.get('zaman', 0)), 'durum': d}
-    if path == '/api/arkadas':                      # Arkadaşlarınla Oyna: Host (sunucu, adresler, misafirler) ve Join (oturum)
+    if path == '/api/arkadas':                      # Arkadaşlarınla Oyna: Host, Join ve kalıcı arkadaş kayıtları
         canli = read_json(os.path.join(YOL.LOGS, 'canli_durum.json'), None) if YON.running() else None
         aktif = KAY.active()
-        return {'host': ARK.host_durumu(canli), 'misafir': ARK.durum(), 'kayitlar': KAY.list(), 'aktif': aktif,
+        host = ARK.host_durumu(canli)                # güncel aktif kayıt yuvaları: editörün salt okunur kilidi
+        return {'host': host, 'misafir': ARK.durum(), 'kayitlar': KAY.list(),
+                'zapisy_znajomych': KAY.friend_saves(), 'aktif': aktif,
                 'istemci_surumu': IST.check(client_folder()).get('surum') or IST.supported(),
                 # Host'un dünyası (Dünya Editörü): seçim ('' kaydının dünyası), seçilebilenler ve sunucunun açılacağı dünya
                 'dunya': {'secim': CFG.get('arkadas_dunya') if DW.var(CFG.get('arkadas_dunya') or '') else '',

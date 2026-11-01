@@ -90,7 +90,8 @@ class Dispatch:
         return ('DispatchActiveEventCommand', {'activeEvent': DISPATCH_DAY if dispatch_day(now) else GALAXY_GATE_DAY if gate_day(now) else EVENT_NONE})
 
     def login_msgs(self):
-        return [self.slot_info()]
+        """Dispatch/Expedition window bootstrap: publish slots and gates before either tab asks for its own list."""
+        return [self.slot_info()] + self.gate_list()
 
     # ------------------------------------------------------------ toplayıcılar
     def retriever_list(self, status, now=None):
@@ -100,7 +101,10 @@ class Dispatch:
         else:
             lst = [mod('DispatchModule', duration=max(0, int(g['bitis'] - now)), id=g['id'], slotId=int(s))
                    for s, g in sorted(self.st['gonderilen'].items())]
-        return [('DispatchGetRetrieverListCommand', dict(statusType=status, retrieverList=lst)), self.event(now)]
+        # The Dispatch window may open on the Retriever tab without requesting the Gate tab yet.
+        # Send the gate catalogue alongside it so the Gate tab is populated when the player switches to it.
+        return [('DispatchGetRetrieverListCommand', dict(statusType=status, retrieverList=lst)),
+                self.event(now)] + self.gate_list(now)
 
     def send(self, f):
         rid = str(f.get('dispatchId'))

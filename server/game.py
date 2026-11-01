@@ -748,7 +748,10 @@ class Session:
         present = {n for n, f in msgs}
         for n, f in msgs:
             if n == 'DispatchSlotInfoCommand':
+                # Bootstrap both Dispatch tabs: some client builds do not request the Gate list
+                # until the player switches tabs, leaving the Expedition window blank on first open.
                 out.append(self.dispatch.slot_info())
+                out += self.dispatch.gate_list()
                 continue
             if n == 'EventUpdateCommand':             # takvimin etkinlikleri (takvim.py)
                 out.append(TK.event_cmd())

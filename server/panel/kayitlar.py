@@ -174,7 +174,28 @@ class Kayitlar:
     def slots(self):
         if not os.path.isdir(self.root):
             return []
-        return sorted(s for s in os.listdir(self.root) if re.fullmatch(r'[a-z0-9_]{1,40}', s) and self.exists(s))
+        return sorted(s for s in os.listdir(self.root) if re.fullmatch(r'[a-z0-9_]{1,40}', s) and self.exists(s)
+                      and not s.startswith('arkadas_') and not self.meta(s).get('arkadas_profil'))
+
+    def friend_slots(self):
+        """Kalıcı host kayıtları; normal Kayıtlar/etkin kayıt listesine karışmaz."""
+        if not os.path.isdir(self.root):
+            return []
+        out = [s for s in os.listdir(self.root) if re.fullmatch(r'[a-z0-9_]{1,40}', s) and self.exists(s)
+               and self.meta(s).get('arkadas_profil') is True]
+        return sorted(out, key=lambda s: os.path.getmtime(self.profile(s)), reverse=True)
+
+    def friend_saves(self):
+        """Graj ze znajomymi: hostowe zapisy, gotowe do edytora i kopii bezpieczeństwa."""
+        out = []
+        for slot in self.friend_slots():
+            try:
+                row = self.summary(slot)
+                row['arkadas'] = True
+                out.append(row)
+            except (OSError, ValueError):
+                continue
+        return out
 
     def meta(self, slot):
         try:

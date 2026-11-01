@@ -1081,7 +1081,7 @@ def pvp_hedefi(w, n, now):
     return en
 
 
-SAVUNMA_AZAMI = 2                # bir istilacıya karşı çağrılan en çok yardımcı (sürü değil)
+SAVUNMA_AZAMI = 3                # bir istilacıya karşı tank, destek ve hasar yardımcıları
 SAVUNMA_BEKLEME = 60.0           # aynı haritada iki çağrı arası (sn)
 
 
@@ -1106,8 +1106,12 @@ def savunma_cagri(w, n, uid, now):
         mx, my = m.mover.pos(now)
         mesafe = math.hypot(mx - nx, my - ny)
         if mesafe < 6000 and random.random() < 0.3 + 0.6 * m.bot.o('saldirganlik'):
-            adaylar.append((mesafe, m))
-    for _, m in sorted(adaylar, key=lambda x: x[0])[:SAVUNMA_AZAMI]:
+            from . import kisilik as KS
+            rol_sira = {'tank': 0, 'destek': 1, 'dps': 2, 'denge': 3, 'kesif': 4}
+            rol = KS.rol(m.bot.k['kisilik'])
+            adaylar.append((rol_sira.get(rol, 3), mesafe, -m.bot.o('yardimseverlik'), m))
+    # Önce tankı, sonra desteği ve atıcıları gönder; aynı rolde yakındaki bot öne çıkar.
+    for _, _, _, m in sorted(adaylar, key=lambda x: (x[0], x[1], x[2]))[:SAVUNMA_AZAMI]:
         m.hedef = uid
         m.niyet_t = now
 
@@ -1370,10 +1374,35 @@ def eslik(w, n, now):
         return False
     if n.hedef is None:
         t = w.target if lider[0] == 'h' else lider[1].hedef
+        from . import kisilik as KS
+        rol = KS.rol(n.bot.k['kisilik'])
+        if lider[0] == 'b' and rol in ('tank', 'destek'):
+            # Tank/destek, takip ettiği bot vuruluyorsa önce saldıranı durdurmaya çalışır.
+            saldiranlar = [(an, uid) for uid, an in lider[1].saldiran.items() if now - an < 6]
+            if saldiranlar:
+                t = max(saldiranlar)[1]
+        elif lider[0] == 'b' and rol == 'kesif' and t is None:
+            # Zwiadowca yakındaki düşman pilotu, grup savaşa başlamadan önce arar.
+            nx, ny = n.mover.pos(now)
+            zagrozenia = []
+            for przeciwnik in w.npcs.values():
+                if (przeciwnik is n or przeciwnik.bot is None or not przeciwnik.alive
+                        or not bota_saldirabilir(w, n, przeciwnik, now)):
+                    continue
+                px, py = przeciwnik.mover.pos(now)
+                odleglosc = math.hypot(px - nx, py - ny)
+                if odleglosc <= 3200:
+                    zagrozenia.append((odleglosc, przeciwnik))
+            if zagrozenia:
+                t = min(zagrozenia, key=lambda x: x[0])[1].id
         m = w.npcs.get(t) if t is not None else None
-        if m is not None and m.alive and m.bot is None and not m.d.get('dost') and kesebilir(n.bot, m):
-            n.hedef = m.id
-            return False                                 # hedefe yaklaşmayı olağan akış yapar
+        if m is not None and m.alive:
+            if m.bot is None and not m.d.get('dost') and kesebilir(n.bot, m):
+                n.hedef = m.id
+                return False                             # NPC'yi liderle birlikte avlar
+            if m.bot is not None and bota_saldirabilir(w, n, m, now):
+                n.hedef = m.id
+                return False                             # başka bota karşı grup savaşına katılır
     if n.hedef is not None:
         return False
     lx, ly = w.hero_pos(now) if lider[0] == 'h' else lider[1].mover.pos(now)

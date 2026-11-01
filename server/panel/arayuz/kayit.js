@@ -173,7 +173,7 @@ function silinenler(liste) {
 }
 
 // ================================================================== KARAKTER EDİTÖRÜ
-const KE = { slot: null, ad: '', v: null, sekme: 'pilot', gemi: null, konfig: null, mesgul: false, katalog: null, ara: '', cepDolu: false, envTur: 'hepsi', kaynakAra: '' };
+const KE = { slot: null, ad: '', from: 'kayitlar', v: null, sekme: 'pilot', gemi: null, konfig: null, mesgul: false, katalog: null, ara: '', cepDolu: false, envTur: 'hepsi', kaynakAra: '' };
 const KE_SEKMELER = [
   ['pilot', N('Pilot'), 'user', 'pilotSheet_normal'], ['hangar', N('Hangar'), 'hangar', 'hangar_normal'], ['dronlar', N('Dronlar'), 'drone', null],
   ['pet', 'P.E.T.', 'paw', 'pet_normal'], ['envanter', N('Envanter'), 'box', 'assembly_normal'], ['cephane', N('Cephane'), 'ammo', null],
@@ -192,20 +192,24 @@ const KE_SIFIRLA = [['ipuclari', N('İpuçlarını yeniden göster (kapattıklar
 const KE_ALAN = { ad: N('Pilot adı'), firma: N('Firma'), seviye: N('Seviye'), ep: N('Deneyim (EP)'), kredi: N('Kredi'), uridyum: N('Uridyum'), onur: N('Onur'),
   premium: 'Premium', aktif_gemi: N('Etkin gemi'), harita: N('Harita'), can: N('Gemi canı') };
 
-function keAc(k) {
-  Object.assign(KE, { slot: k.id, ad: k.ad, v: null, sekme: 'pilot', gemi: null, konfig: null });
+function keAc(k, from = 'kayitlar') {
+  Object.assign(KE, { slot: k.id, ad: k.ad, from, v: null, sekme: 'pilot', gemi: null, konfig: null });
   $('#content').scrollTop = 0;
   renderEditor();
 }
-function keKapat() { KE.slot = null; KE.v = null; renderKayitlar(); }
+function keKapat() {
+  const from = KE.from;
+  KE.slot = null; KE.v = null; KE.from = 'kayitlar';
+  if (from === 'arkadas') renderArkadas(); else renderKayitlar();
+}
 
 async function renderEditor() {
   await ogYukle();
   if (!OG.dizin) return keKilit();
   if (!KE.v) {
     const v = await act(() => api('/api/editor?id=' + encodeURIComponent(KE.slot)));
-    if (!v) { KE.slot = null; return renderKayitlar(); }
-    if (S.page !== 'kayitlar' || !KE.slot) return;
+    if (!v) { const from = KE.from; KE.slot = null; return from === 'arkadas' ? renderArkadas() : renderKayitlar(); }
+    if (S.page !== KE.from || !KE.slot) return;
     KE.v = v;
     if (v.atildi) toast(T('Kayıt editörde açıldıktan sonra değişmiş (oyun oynandı ya da yedek geri yüklendi): eski taslak atıldı.'), 'info', 7000);
   }
@@ -215,9 +219,9 @@ async function renderEditor() {
 // oyunun görselleri yok (oyun kurulmadı ya da BepInEx ile hiç açılmadı): editör eşyaları ancak oyunun simgeleri ve adlarıyla
 // anlaşılır gösterebilir; kitaplık (kayıt kartları) görselsiz de çalışır
 function keKilit() {
-  if (S.page !== 'kayitlar' || !KE.slot) return;
+  if (S.page !== KE.from || !KE.slot) return;
   $('#content').replaceChildren(h('div', { class: 'stack ke-editor' },
-    h('div', { class: 'card ke-cubuk' }, btn(T('Kayıtlar'), keKapat, 'ghost', 'arrowL'),
+    h('div', { class: 'card ke-cubuk' }, btn(T(KE.from === 'arkadas' ? 'Arkadaşlarınla Oyna' : 'Kayıtlar'), keKapat, 'ghost', 'arrowL'),
       h('div', { class: 'ke-cubuk-ad' }, h('b', null, KE.ad || KE.slot), h('div', { class: 'small muted' }, T('Karakter editörü')))),
     h('div', { class: 'card empty ke-kilit' }, art('dron_kilit'), h('h3', null, T('Oyunun görselleri henüz hazır değil')),
       h('p', null, T('Karakter editörü eşyaları oyunun kendi simgeleri, adları ve açıklamalarıyla gösterir. Oyunu kur ve bir kez OYNA ile aç: görseller ilk açılışta hazırlanır, sonra editör açılır.')),
@@ -245,7 +249,7 @@ function keAra(e, ata) {
   }, 150);
 }
 function keCiz() {
-  if (S.page !== 'kayitlar' || !KE.slot || !KE.v) return;
+  if (S.page !== KE.from || !KE.slot || !KE.v) return;
   const v = KE.v, c = $('#content'), sc = c.scrollTop;
   const sekme = KE_SEKMELER.find(s => s[0] === KE.sekme) || KE_SEKMELER[0];
   c.replaceChildren(h('div', { class: 'stack ke-editor' }, keCubuk(v),
@@ -272,7 +276,7 @@ const keSekmeAciklama = id => T({ pilot: N('Ad, firma, seviye, deneyim, onur ve 
 function keCubuk(v) {
   const f = v.fark || { sayi: 0 }, ro = v.salt_okunur;
   return h('div', { class: 'card ke-cubuk' },
-    btn(T('Kayıtlar'), keKapat, 'ghost', 'arrowL'),
+    btn(T(KE.from === 'arkadas' ? 'Arkadaşlarınla Oyna' : 'Kayıtlar'), keKapat, 'ghost', 'arrowL'),
     h('div', { class: 'ke-cubuk-ad' }, h('b', null, KE.ad || KE.slot), h('div', { class: 'small muted' }, T('Karakter editörü'))),
     h('span', { class: 'spacer' }),
     ro ? badge(T('Salt okunur'), 'warn')
