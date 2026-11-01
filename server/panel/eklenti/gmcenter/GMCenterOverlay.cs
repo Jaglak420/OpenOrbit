@@ -509,6 +509,13 @@ public class GMCenterOverlay : MonoBehaviour
             GUILayout.Label("Najpierw wybierz gracza w zakładce GRACZE.");
             return;
         }
+        PlayerRow selectedPlayer;
+        lock (sync)
+            selectedPlayer = players.Find(p => p.Uid == selectedUid);
+        bool canDispatch = selectedPlayer != null && selectedPlayer.Online;
+        if (!canDispatch)
+            GUILayout.Label("Wybrany gracz jest offline. Podgląd jest dostępny, ale wysyłanie i odbieranie Dispatch wymaga aktywnej sesji.");
+
         gateScroll = GUILayout.BeginScrollView(gateScroll);
         lock (sync)
         {
@@ -525,12 +532,12 @@ public class GMCenterOverlay : MonoBehaviour
                 GUILayout.Label((gate.Prepared ? "PRZYGOTOWANA / AKTYWNA · " : "") + gate.Status + "  ·  " + gate.Reason);
                 GUILayout.EndVertical();
 
-                if (gate.CanSend)
+                if (canDispatch && gate.CanSend)
                 {
                     if (GUILayout.Button("WYŚLIJ · 1 GGEU", GUILayout.Width(150), GUILayout.Height(38)))
                         _ = DispatchActionAsync(gate, "send");
                 }
-                else if (gate.CanCollect)
+                else if (canDispatch && gate.CanCollect)
                 {
                     if (GUILayout.Button("ODBIERZ", GUILayout.Width(150), GUILayout.Height(38)))
                         _ = DispatchActionAsync(gate, "collect");
