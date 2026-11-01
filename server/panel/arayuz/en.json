@@ -2891,5 +2891,7 @@
   "Destek": "Support",
   "Keşif": "Scout",
   "Dengeli": "Balanced",
-  "Oyun istemcisi ve oyun sunucusu kapalıyken OpenOrbit paneli açık kaldığı sürece botların yaşamı simüle edilir. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.": "While the game client and game server are closed, bot life is simulated as long as the OpenOrbit panel remains open. Simulation stops before the game starts. 0 disables it; the maximum for one break is 150 hours."
+  "Oyun istemcisi ve oyun sunucusu kapalıyken OpenOrbit paneli açık kaldığı sürece botların yaşamı simüle edilir. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.": "While the game client and game server are closed, bot life is simulated as long as the OpenOrbit panel remains open. Simulation stops before the game starts. 0 disables it; the maximum for one break is 150 hours.",
+  "Panel açıkken oyun kapalı olduğu sürece basit botlar kendi haritalarında PvE ilerlemesi yapar. 0 kapatır; tek bir ara için en çok 150 saat.": "While the panel is open and the game is closed, basic bots continue PvE progress on their assigned maps. 0 disables it; the maximum for one break is 150 hours.",
+  "Basit botların çevrimdışı PvE ilerleme hızı.": "Offline PvE progress speed for basic bots."
 }
