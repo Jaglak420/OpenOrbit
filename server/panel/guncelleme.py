@@ -19,8 +19,8 @@ from urllib.request import Request, urlopen
 
 from dil import t as _
 
-DEPO = 'kaanumay/OpenOrbit'
-DAL = 'main'
+DEPO = 'Jaglak420/OpenOrbit'
+DAL = 'feature/remote-friend-saves-and-cbs-shield'
 API = 'https://api.github.com'
 SURUM_DOSYASI = os.path.join('server', 'surum.txt')        # "$Format:%H %cI$" -> GitHub arşivinde "<commit> <tarih>"
 YEDEK_SAYISI = 2
