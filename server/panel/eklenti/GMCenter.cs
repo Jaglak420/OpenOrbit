@@ -33,6 +33,7 @@ public sealed class GMCenterOverlay : MonoBehaviour
     enum Page { Dashboard, Players, Dispatch, Commands, Logs }
 
     static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(4) };
+    readonly string tokenPath = Path.Combine(Paths.BepInExRootPath, "openorbit", "panel_kanali.json");
     readonly object sync = new();
     readonly List<PlayerRow> players = new();
     readonly List<GateRow> gates = new();
@@ -140,15 +141,19 @@ public sealed class GMCenterOverlay : MonoBehaviour
         connecting = true;
         try
         {
-            string json = await RequestAsync("GET", "/gm/bootstrap", null, true);
+            // The panel channel writes this file locally; never expose its key over an unauthenticated HTTP route.
+            string json = File.ReadAllText(tokenPath);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            token = Text(root, "token");
+            token = Text(root, "anahtar");
             int port = Number(root, "port");
-            if (port > 0)
-                api = "http://127.0.0.1:" + port;
-            if (string.IsNullOrEmpty(token))
-                throw new InvalidOperationException("Serwer nie zwrócił tokenu GM.");
+            if (port <= 0 || string.IsNullOrEmpty(token))
+                throw new InvalidOperationException("Nieprawidłowy lokalny kanał panelu.");
+            api = "http://127.0.0.1:" + port;
+            string bootstrap = await RequestAsync("GET", "/gm/bootstrap");
+            using var bootDoc = JsonDocument.Parse(bootstrap);
+            if (!Flag(bootDoc.RootElement, "enabled"))
+                throw new InvalidOperationException("GM Center jest wyłączony dla tej sesji.");
             error = "";
             notice = "Połączono z lokalnym serwerem OpenOrbit.";
             await LoadPlayersAsync();
