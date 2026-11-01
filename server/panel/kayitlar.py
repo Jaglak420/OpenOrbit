@@ -175,7 +175,7 @@ class Kayitlar:
         if not os.path.isdir(self.root):
             return []
         return sorted(s for s in os.listdir(self.root) if re.fullmatch(r'[a-z0-9_]{1,40}', s) and self.exists(s)
-                      and not self.meta(s).get('arkadas_profil'))
+                      and not s.startswith('arkadas_') and not self.meta(s).get('arkadas_profil'))
 
     def friend_slots(self):
         """Kalıcı host kayıtları; normal Kayıtlar/etkin kayıt listesine karışmaz."""
