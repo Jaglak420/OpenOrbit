@@ -587,8 +587,9 @@ class Yonetici(SohbetMotoru):
             self.hizli(b, saat * 3600, now, adim=max(1800.0, saat * 3600 / 60))
         self.log('   botlar: jumpstart %d bot, %.1f sn' % (len(botlar), time.time() - t0))
 
-    def telafi(self, saniye, now):
-        """Oyuncu yokken geçen süreyi ilerlet: bireysel aktiflik, PvP, sosyal kararlar ve klan ilişkileri."""
+    def telafi(self, saniye, now, offline_tick=None):
+        """Oyuncu yokken geçen süreyi ilerlet: bireysel aktiflik, PvP, sosyal kararlar ve klan ilişkileri.
+        offline_tick: varsa sanal zamanın dakikalık adımlarında CBS gibi kalıcı dünya işlerini ilerletir."""
         t0 = time.time()
         baslangic = now - max(0.0, float(saniye))
         yeni_kayitlar = {}
@@ -641,6 +642,8 @@ class Yonetici(SohbetMotoru):
                     sanal = min(now, sanal + 60.0)
                     self.now = sanal
                     self._toplum_tick(sanal)
+                    if offline_tick is not None:
+                        offline_tick(sanal)
             finally:
                 for b in gecici:
                     b.cevrimici = False
