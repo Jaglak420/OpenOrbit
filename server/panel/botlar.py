@@ -642,6 +642,7 @@ def klanlar(pid):
 def ayrinti(pid):
     """Paket + kadronun canlı durumu (son kayıttan)."""
     import harita as H
+    from bot import kisilik as KS
     d = oku(pid)
     t, c = canli(pid)
     rows = []
@@ -649,7 +650,7 @@ def ayrinti(pid):
         s = c.get(x['no'], {})
         e = s.get('ekip') or {}
         rows.append({'no': x['no'], 'ad': x['ad'], 'firma': x['firma'], 'arketip': x['kisilik']['arketip'],
-                     'aliskanlik': x['kisilik'].get('aliskanlik'), 'dil': x['kisilik'].get('dil'),
+                     'rol': KS.rol(x['kisilik']), 'aliskanlik': x['kisilik'].get('aliskanlik'), 'dil': x['kisilik'].get('dil'),
                      'ad_dili': x['kisilik'].get('ad_dili') or x['kisilik'].get('dil'),
                      'ozellik': x['kisilik']['ozellik'], 'seviye': s.get('seviye', 1), 'gemi': e.get('gemi', 'ship_phoenix'),
                      'harita': s.get('harita'), 'harita_ad': H.name(s['harita']) if s.get('harita') else '', 'klan': s.get('klan'), 'hedef': s.get('hedef'), 'istat': s.get('istat') or {},
