@@ -2874,7 +2874,6 @@
   "Bağlantısı kapanır; son profil ana kayda yazılır ve arkadaşının yerel kopyası da son hâline eşitlenir.": "Połączenie zostanie zamknięte; najnowszy profil zostanie zapisany w kopii głównej i zsynchronizowany z lokalną kopią znajomego.",
   "Oyun kapanır; yerel kopyan bu bilgisayara kaydedilir, ana kopya host bilgisayarında kalır.": "Gra zostanie zamknięta; lokalna kopia zostanie zapisana na tym komputerze, a kopia główna pozostanie na komputerze hosta.",
   "Çevrimdışı simülasyon (en çok saat)": "Symulacja offline (maksymalna liczba godzin)",
-  "Oyun istemcisi ve oyun sunucusu kapalıyken panel botların yaşamını simüle eder. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.": "Gdy klient i serwer gry są wyłączone, panel symuluje życie botów. Symulacja zatrzymuje się przed uruchomieniem gry. 0 wyłącza symulację; limit jednej przerwy wynosi 150 godzin.",
   "Çevrimdışı simülasyon hızı": "Tempo symulacji offline",
   "Çevrimdışı simülasyondaki ilerleme hız çarpanı.": "Mnożnik tempa postępów podczas symulacji offline.",
   "Canlı dünya — genel bakış": "Żywy świat — przegląd",
@@ -2891,5 +2890,6 @@
   "Tank": "Obrońca",
   "Destek": "Wsparcie",
   "Keşif": "Zwiadowca",
-  "Dengeli": "Zrównoważony"
+  "Dengeli": "Zrównoważony",
+  "Oyun istemcisi ve oyun sunucusu kapalıyken OpenOrbit paneli açık kaldığı sürece botların yaşamı simüle edilir. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.": "Gdy klient i serwer gry są wyłączone, życie botów jest symulowane tak długo, jak otwarty pozostaje panel OpenOrbit. Symulacja zatrzymuje się przed uruchomieniem gry. 0 wyłącza symulację; limit jednej przerwy wynosi 150 godzin."
 }
