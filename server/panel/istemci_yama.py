@@ -35,6 +35,8 @@ UNITY = {'ad': 'Unity 2022.3.58', 'url': 'https://unity.bepinex.dev/libraries/20
          'yol': 'BepInEx/unity-libs/2022.3.58.zip'}
 EKLENTI = os.path.join(PANEL_DIR, 'eklenti', 'OpenOrbitYama.dll')
 EKLENTI_YOLU = 'BepInEx/plugins/OpenOrbitYama.dll'
+GM_CENTER_EKLENTI = os.path.join(PANEL_DIR, 'eklenti', 'OpenOrbitGMCenter.dll')
+GM_CENTER_EKLENTI_YOLU = 'BepInEx/plugins/OpenOrbitGMCenter.dll'
 AYAR = 'BepInEx/config/BepInEx.cfg'
 KAYIT = 'BepInEx/openorbit.json'        # kurulumun bittiğini ve sürümünü söyler
 INTEROP = 'BepInEx/interop/assembly-hash.txt'   # BepInEx interop derlemelerini üretince en son bunu yazar
@@ -54,19 +56,30 @@ def kurulu(folder):
 
 
 def eklenti(folder):
-    """Eklentinin kopyası paneldekinden farklıysa (yoksa) yenile."""
-    with open(EKLENTI, 'rb') as fh:
-        yeni = fh.read()
-    p = yol(folder, EKLENTI_YOLU)
-    try:
-        with open(p, 'rb') as fh:
-            if fh.read() == yeni:
-                return
-    except OSError:
-        pass
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    with open(p, 'wb') as fh:
-        fh.write(yeni)
+    """Kurulu istemciye panel yamalarını ve (derlenmişse) ayrı GM Center eklentisini kopyala."""
+    for source, rel, required in (
+        (EKLENTI, EKLENTI_YOLU, True),
+        (GM_CENTER_EKLENTI, GM_CENTER_EKLENTI_YOLU, False),
+    ):
+        try:
+            with open(source, 'rb') as fh:
+                yeni = fh.read()
+        except OSError:
+            if required:
+                raise
+            continue
+        p = yol(folder, rel)
+        try:
+            with open(p, 'rb') as fh:
+                if fh.read() == yeni:
+                    continue
+        except OSError:
+            pass
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        tmp = p + '.openorbit-new'
+        with open(tmp, 'wb') as fh:
+            fh.write(yeni)
+        os.replace(tmp, p)
 
 
 def ayar(folder):

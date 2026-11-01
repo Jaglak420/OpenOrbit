@@ -1,0 +1,33 @@
+name: GM Center source validation
+
+on:
+  push:
+    branches:
+      - release/gm-center-jaglak-updater
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile server modules
+        run: python -m py_compile server/gm_center.py server/panel_kanali.py server/test_gm_center.py
+      - name: Run GM Center tests
+        working-directory: server
+        run: python -m unittest test_gm_center -v
+
+  overlay-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Compile Unity overlay source against API stubs
+        run: dotnet build server/panel/eklenti.tests/GMCenterCompile.csproj --configuration Release --nologo
