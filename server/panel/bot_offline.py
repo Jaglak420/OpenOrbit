@@ -196,7 +196,7 @@ class SymulacjaOffline:
                         step = min(self.KROK_MAX, elapsed, limit_h * 3600 - used)
                         if step <= 0:
                             continue
-                        manager = self._menedzer(pid, pakiet, now)
+                        manager = self._menedzer(pid, pakiet, now - step * tempo)
                         # Social decisions, clan budgets/diplomacy and CBS station strategy share the same world context.
                         with self._swiat_kontekst(pid, manager):
                             manager.telafi(step * tempo, now)
