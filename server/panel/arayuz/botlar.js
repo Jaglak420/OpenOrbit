@@ -357,21 +357,21 @@ function btGenel(d) {
   });
   const off = d.offline || { uzyte_godziny: 0, limit_godzin: a.telafi_saat || 0, procent: 0 };
   const sumaStacji = (d.klanlar || []).reduce((n, k) => n + (k.istasyonlar || []).length, 0);
-  const swiat = h('div', { class: 'card' }, h('h2', null, icon('globe'), T('Żywy świat — przegląd')),
+  const swiat = h('div', { class: 'card' }, h('h2', null, icon('globe'), T('Canlı dünya — genel bakış')),
     h('div', { class: 'grid g2' },
-      [['Boty w pakiecie', d.adet], ['Klanów botów', (d.klanlar || []).length], ['Stacji CBS', sumaStacji],
-       ['Średni poziom', d.seviye_ort == null ? '—' : d.seviye_ort]].map(([k, v]) =>
+      [['Paketteki botlar', d.adet], ['Bot klanları', (d.klanlar || []).length], ['CBS istasyonları', sumaStacji],
+       ['Ortalama seviye', d.seviye_ort == null ? '—' : d.seviye_ort]].map(([k, v]) =>
         h('div', { class: 'kv' }, h('span', null, T(k)), h('b', null, v)))),
     Object.keys(hedefler).length ? h('div', { class: 'small muted', style: { marginTop: '10px' } },
-      T('Najczęstsze aktywności: {0}', Object.entries(hedefler).sort((x, y) => y[1] - x[1]).slice(0, 5)
+      T('En sık yapılan işler: {0}', Object.entries(hedefler).sort((x, y) => y[1] - x[1]).slice(0, 5)
         .map(([k, n]) => T(BT_HEDEF[k] || k) + ' ' + n).join(' · '))) : null,
     Object.keys(haritalar).length ? h('div', { class: 'small muted', style: { marginTop: '6px' } },
-      T('Najczęściej odwiedzane mapy: {0}', Object.entries(haritalar).sort((x, y) => y[1] - x[1]).slice(0, 5)
+      T('En sık ziyaret edilen haritalar: {0}', Object.entries(haritalar).sort((x, y) => y[1] - x[1]).slice(0, 5)
         .map(([k, n]) => k + ' ' + n).join(' · '))) : null);
-  const offlineCard = h('div', { class: 'card' }, h('h2', null, icon('clock'), T('Symulacja offline')),
+  const offlineCard = h('div', { class: 'card' }, h('h2', null, icon('clock'), T('Çevrimdışı simülasyon')),
     h('div', { class: 'row between wrap' },
-      h('span', { class: 'small muted' }, off.limit_godzin ? T('Wykorzystano {0} z {1} godzin', off.uzyte_godziny, off.limit_godzin) : T('Symulacja wyłączona')),
-      badge(off.limit_godzin ? T('Do {0} h na przerwę', off.limit_godzin) : T('Wyłączona'), '')),
+      h('span', { class: 'small muted' }, off.limit_godzin ? T('{1} saatin {0} saati kullanıldı', off.uzyte_godziny, off.limit_godzin) : T('Simülasyon kapalı')),
+      badge(off.limit_godzin ? T('Ara başına en çok {0} saat', off.limit_godzin) : T('Kapalı'), '')),
     h('div', { class: 'meter', style: { marginTop: '10px' } },
       h('div', { class: 'meter-bar' }, h('span', { style: { width: Math.max(0, Math.min(100, off.procent || 0)) + '%' } })))); 
   return h('div', { class: 'stack' }, swiat, offlineCard,
@@ -387,9 +387,9 @@ function btGenel(d) {
       btSatir(T('Çevrimiçi olma eğilimi'), T('Botların oyun saatlerine göre çevrimiçi olma isteği; yüksekse aynı anda daha çok bot.'),
         btKaydirac(a.cevrimici_oran, v => btA('cevrimici_oran', v), { min: 0.05, max: 2, step: 0.05, fmt: v => '%' + Math.round(v * 100) })),
       btSatir(T('Aynı anda en çok çevrimiçi'), T('0: sınırsız.'), btSayi(a.en_cok_cevrimici, v => btA('en_cok_cevrimici', v), { min: 0, max: 3000 })),
-      btSatir(T('Symulacja offline (maks. godz.)'), T('Gdy klient i serwer gry są wyłączone, panel symuluje życie botów. Symulacja zatrzymuje się przed uruchomieniem gry. 0 wyłącza symulację; limit jednej przerwy wynosi do 150 godzin.'),
+      btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Oyun istemcisi ve oyun sunucusu kapalıyken panel botların yaşamını simüle eder. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.'),
         btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 150 })),
-      btSatir(T('Tempo symulacji offline'), T('Mnożnik tempa rozwoju podczas symulacji offline.'), 
+      btSatir(T('Çevrimdışı simülasyon hızı'), T('Çevrimdışı simülasyondaki ilerleme hız çarpanı.'), 
         btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) })),
       d.gelisim !== 'jumpstart' ? btSatir(T('Yeni pilot kaydı (saniye)'), T('Progressive: her firmaya ortalama bu kadar saniyede bir yeni pilot kayıt olup oyuna başlar (yeni açılmış bir sunucu gibi; hepsi aynı anda doğmaz). 0: hepsi baştan kayıtlı.'),
         btSayi(a.kayit_sn ?? 15, v => btA('kayit_sn', v), { min: 0, max: 300 })) : null,
