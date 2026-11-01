@@ -30,6 +30,14 @@ class GateStatusTests(unittest.TestCase):
         self.assertEqual(progress["next_required"], 120)
         self.assertFalse(progress["next_built"])
 
+    def test_next_build_stays_visible_while_current_gate_is_in_dispatch(self):
+        current_gate = {"parcalar": list(range(1, 121)), "hazir": False, "sonraki": list(range(1, 114))}
+        progress = gate_progress(current_gate, 120)
+        self.assertEqual(progress["parts"], 120)
+        self.assertEqual(progress["next_parts"], 113)
+        self.assertTrue(progress["built"])
+        self.assertFalse(progress["prepared"])
+
     def test_built_gate_requires_first_manual_completion(self):
         state = gate_status(built=True, completed=False, wave=0, now=100)
         self.assertEqual(state["status"], "first_manual_completion_required")
