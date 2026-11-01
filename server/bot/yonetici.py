@@ -523,7 +523,7 @@ class Yonetici(SohbetMotoru):
                 hedef = a.r.choice(dusmanlar)
                 dost_a = [x for x in canli if dost_mu(a, x) and x.olu_bitis <= now]
                 dost_b = [x for x in canli if dost_mu(hedef, x) and x.olu_bitis <= now]
-                # Wsparcie przewagi liczebnej może zniechęcić samotnego łowcę, chyba że jest bardzo odważny lub wściekły.
+                # Sayıca üstün düşman desteği, çok cesur veya öfkeli olmayan yalnız avcıyı caydırabilir.
                 if len(dost_b) > len(dost_a) + 1 and a.r.random() > a.o('risk') * 0.65 + 0.15:
                     continue
                 oran = hedef.deger()['guc'] / max(0.5, a.deger()['guc'])
@@ -587,7 +587,7 @@ class Yonetici(SohbetMotoru):
         self.log('   botlar: jumpstart %d bot, %.1f sn' % (len(botlar), time.time() - t0))
 
     def telafi(self, saniye, now):
-        """Oyuncu yokken geçen süreyi ilerlet: bireysel aktiflik, PvP karşılaşmaları ve takım bağları da işlenir."""
+        """Oyuncu yokken geçen süreyi ilerlet: bireysel aktiflik, PvP, sosyal kararlar ve klan ilişkileri."""
         t0 = time.time()
         for b in self.botlar:
             if not b.kayitli:
@@ -596,10 +596,9 @@ class Yonetici(SohbetMotoru):
             s = saniye * pay * b.r.uniform(0.5, 1.5)
             if s > 0:
                 self.hizli(b, s, now, adim=900.0)
-        # Kısa offline dönemleri de sonuç vermeli. Simüle edilen pilotları geçici olarak aynı haritaya alır,
-        # karşılaşma bittikten sonra yeniden offline durumuna döndürür.
+        # Geçici çevrimiçi nüfus: takım PvP'si ve botların sosyal/klan kararları aynı çevrimdışı adımda yürür.
         self.haritada = {}
-        czas = []
+        gecici = []
         for b in self.botlar:
             if not b.kayitli:
                 continue
@@ -607,14 +606,17 @@ class Yonetici(SohbetMotoru):
             if b.r.random() < max(0.0, min(0.95, pay)):
                 b.cevrimici = True
                 self.haritada.setdefault(b.harita, set()).add(b)
-                czas.append(b)
+                gecici.append(b)
         try:
             self.pvp_tick(now, elapsed=max(PVP_SN, saniye))
+            self.now = now
+            self._toplum_tick(now)
         finally:
-            for b in czas:
+            for b in gecici:
                 b.cevrimici = False
             self.haritada = {}
         self.log('   botlar: çevrimdışı simülasyon %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
+
 
 
 def sunucu(yol, log=print):
