@@ -62,9 +62,10 @@ VARSAYILAN = {                 # paketin ayarları (panel/botlar.py aynı anahta
 
 
 class Yonetici(SohbetMotoru):
-    def __init__(self, paket, durum_yolu=None, log=print, now=None):
+    def __init__(self, paket, durum_yolu=None, log=print, now=None, offline=False):
         self.paket = paket
         self.durum_yolu = durum_yolu
+        self.offline = bool(offline)       # paneldeki çevrimdışı simülatörü: ilk nüfusu kurma veya telafi etme
         self.log = log
         self.ayarlar = dict(VARSAYILAN, **(paket.get('ayarlar') or {}))
         self.ayarlar['izinler'] = dict(VARSAYILAN['izinler'], **(self.ayarlar.get('izinler') or {}))
@@ -147,9 +148,10 @@ class Yonetici(SohbetMotoru):
         for f in self.kayit_sirasi:
             self.sonraki_kayit[f] = now + self.ayar('kayit_sn', 15) * b.r.uniform(0.2, 1.0)
         t = kayit.get('t')
-        if t and self.ayar('telafi_saat', 0) > 0 and now - t > 600:
+        if not self.offline and t and self.ayar('telafi_saat', 0) > 0 and now - t > 600:
             self.telafi(min(now - t, self.ayar('telafi_saat') * 3600) * self.ayar('telafi_oran', 0.35), now)
-        self.ilk_nufus(now)
+        if not self.offline:
+            self.ilk_nufus(now)
         from . import moderasyon as MOD
         MOD.sec(self)
 
@@ -552,7 +554,7 @@ class Yonetici(SohbetMotoru):
                 continue
             pay = sum(KS.ALISKANLIKLAR[b.k['kisilik']['aliskanlik']][1]) / 24.0 * self.ayar('cevrimici_oran', 0.6)
             s = saniye * pay * b.r.uniform(0.5, 1.5)
-            if s > 300:
+            if s > 0:
                 self.hizli(b, s, now, adim=900.0)
         self.log('   botlar: çevrimdışı telafi %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
 
