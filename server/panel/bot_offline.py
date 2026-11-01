@@ -136,7 +136,7 @@ class SymulacjaOffline:
         for pid in self.boty.liste_kimlik():
             try:
                 d = self._czytaj_meta(pid)
-                d.update(last_wall=now, used_seconds=0.0, paused=True)
+                d.update(last_wall=now, used_seconds=0.0, sim_time=now, paused=True)
                 self._zapisz_meta(pid, d)
             except (OSError, ValueError):
                 self.log('boty offline: nie można zresetować znacznika pakietu %s' % pid)
@@ -178,7 +178,7 @@ class SymulacjaOffline:
                         pakiet = self.boty.oku(pid)
                         meta = self._czytaj_meta(pid)
                         if not pakiet.get('dunya') or pakiet.get('kip') == 'basit':
-                            meta.update(last_wall=now, used_seconds=0.0, paused=False)
+                            meta.update(last_wall=now, used_seconds=0.0, sim_time=now, paused=False)
                             self._zapisz_meta(pid, meta)
                             continue
                         a = pakiet.get('ayarlar') or {}
@@ -187,7 +187,7 @@ class SymulacjaOffline:
                         last = float(meta.get('last_wall') or now)
                         used = max(0.0, float(meta.get('used_seconds') or 0.0))
                         if limit_h <= 0 or used >= limit_h * 3600 or tempo <= 0:
-                            meta.update(last_wall=now, used_seconds=used, paused=False)
+                            meta.update(last_wall=now, used_seconds=used, sim_time=float(meta.get('sim_time') or now), paused=False)
                             self._zapisz_meta(pid, meta)
                             continue
                         elapsed = max(0.0, now - last)
@@ -196,13 +196,15 @@ class SymulacjaOffline:
                         step = min(self.KROK_MAX, elapsed, limit_h * 3600 - used)
                         if step <= 0:
                             continue
-                        manager = self._menedzer(pid, pakiet, now - step * tempo)
+                        sim_start = float(meta.get('sim_time') or (now - step * tempo))
+                        sim_now = sim_start + step * tempo
+                        manager = self._menedzer(pid, pakiet, sim_start)
                         # Social decisions, clan budgets/diplomacy and CBS station strategy share the same world context.
                         with self._swiat_kontekst(pid, manager):
-                            manager.telafi(step * tempo, now)
-                        manager.kaydet(now)
+                            manager.telafi(step * tempo, sim_now)
+                        manager.kaydet(sim_now)
                         meta.update(last_wall=last + step, used_seconds=min(limit_h * 3600, used + step),
-                                    paused=False, last_run=now, limit_hours=limit_h)
+                                    sim_time=sim_now, paused=False, last_run=now, limit_hours=limit_h)
                         self._zapisz_meta(pid, meta)
                         # kaydet() zmienia mtime durum.json; odśwież sygnaturę cache.
                         self.menedzerowie[pid] = (self._sygnatura(pid), manager)
