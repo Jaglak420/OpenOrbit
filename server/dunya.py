@@ -834,9 +834,12 @@ class World:
         return ('AddBoxCommand', dict(hash=h, boxType=tip, x=b['x'], y=b['y']))
 
     def in_view(self, n, now, hx=None, hy=None):
-        """NPC görüş mesafesinde mi (gösterilmişse bırakma uzaklığına dek görünür kalır). Seçili hedef uzaklaşsa da görünür kalır:
-        gerçek oyunda kilit yalnız başka seçimle, hedefin EMP'siyle, harita değişince ya da hedef ölünce düşer; gemi hedefe dönük, hedef
-        mini haritada (oyuncu bildirimi 2026-10-28: uzaklaşınca seçim bırakılıyordu)."""
+        """NPC görüş mesafesinde mi. Galaktik kapı NPC'leri uzaklık sınırından bağımsız istemciye bildirilir,
+        böylece konum işaretleri minimap'te görünür; normal NPC'ler görüş mesafesi kuralını korur."""
+        # Kosu yalnızca kapı dalgası NPC'lerine gate=True verir. Kapsamı bu şekilde dar tut:
+        # normal haritaların ve kapı dışındaki NPC'lerin görünürlük davranışı değişmesin.
+        if getattr(n, 'gate', False):
+            return True
         if n.id == self.target and n.id in self.visible:
             return True
         if hx is None:
