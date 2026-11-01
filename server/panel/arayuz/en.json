@@ -1926,7 +1926,7 @@
   "Haritaya tıkla: türün sabit doğma noktası (uzaylılar burada belirir).": "Click the map: the type's fixed spawn point (aliens appear here).",
   "Haritaya uzaylı ekle": "Add an alien to the map",
   "Haritayı standarda döndür": "Reset the map to standard",
-  "Hasar": "Damage",
+  "Hasar": "Damage dealer",
   "Hasar al": "Take damage",
   "Hasar ver": "Deal damage",
   "Hedefler": "Objectives",
@@ -2887,5 +2887,9 @@
   "Çevrimdışı simülasyon": "Offline simulation",
   "{1} saatin {0} saati kullanıldı": "{0} of {1} hours used",
   "Simülasyon kapalı": "Simulation disabled",
-  "Ara başına en çok {0} saat": "Up to {0} hours per break"
+  "Ara başına en çok {0} saat": "Up to {0} hours per break",
+  "Tank": "Tank",
+  "Destek": "Support",
+  "Keşif": "Scout",
+  "Dengeli": "Balanced"
 }
