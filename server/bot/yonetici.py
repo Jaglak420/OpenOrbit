@@ -617,31 +617,35 @@ class Yonetici(SohbetMotoru):
             s = etkin_sure * pay * b.r.uniform(0.5, 1.5)
             if s > 0:
                 self.hizli(b, s, now, adim=900.0)
-        # Geçici çevrimiçi nüfus: takım PvP'si ve botların sosyal/klan kararları aynı çevrimdışı adımda yürür.
-        self.haritada = {}
-        gecici = []
-        for b in self.botlar:
-            if not b.kayitli:
-                continue
-            pay = sum(KS.ALISKANLIKLAR[b.k['kisilik']['aliskanlik']][1]) / 24.0 * self.ayar('cevrimici_oran', 0.6)
-            if b.r.random() < max(0.0, min(0.95, pay)):
-                b.cevrimici = True
-                self.haritada.setdefault(b.harita, set()).add(b)
-                gecici.append(b)
-        try:
-            self.pvp_tick(now, elapsed=max(PVP_SN, saniye))
-            # Offline adımları duvar saatinden yavaştır; sosyal kararları da bu sanal zaman içinde
-            # dakikalık aralıklarla çalıştır ki klan başvuruları, diplomasi ve CBS kararları atlanmasın.
-            sanal = now - saniye
-            while sanal < now:
-                sanal = min(now, sanal + 60.0)
-                self.now = sanal
-                self._toplum_tick(sanal)
-        finally:
-            for b in gecici:
-                b.cevrimici = False
+        if self.kip == 'basit':
+            # Basit kip yalnızca sabit haritasındaki PvE etkinliğini simüle eder; sosyal/PvP/CBS stratejisi yoktur.
             self.haritada = {}
-            self.now = now
+        else:
+            # Geçici çevrimiçi nüfus: takım PvP'si ve botların sosyal/klan kararları aynı çevrimdışı adımda yürür.
+            self.haritada = {}
+            gecici = []
+            for b in self.botlar:
+                if not b.kayitli:
+                    continue
+                pay = sum(KS.ALISKANLIKLAR[b.k['kisilik']['aliskanlik']][1]) / 24.0 * self.ayar('cevrimici_oran', 0.6)
+                if b.r.random() < max(0.0, min(0.95, pay)):
+                    b.cevrimici = True
+                    self.haritada.setdefault(b.harita, set()).add(b)
+                    gecici.append(b)
+            try:
+                self.pvp_tick(now, elapsed=max(PVP_SN, saniye))
+                # Offline adımları duvar saatinden yavaştır; sosyal kararları da bu sanal zaman içinde
+                # dakikalık aralıklarla çalıştır ki klan başvuruları, diplomasi ve CBS kararları atlanmasın.
+                sanal = now - saniye
+                while sanal < now:
+                    sanal = min(now, sanal + 60.0)
+                    self.now = sanal
+                    self._toplum_tick(sanal)
+            finally:
+                for b in gecici:
+                    b.cevrimici = False
+                self.haritada = {}
+        self.now = now
         self.log('   botlar: çevrimdışı simülasyon %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
 
 
