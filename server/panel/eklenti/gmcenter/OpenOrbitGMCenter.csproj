@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>OpenOrbitGMCenter</AssemblyName>
+    <RootNamespace>OpenOrbit</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <Istemci Condition="'$(Istemci)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\DarkOrbit_Version1.1.116</Istemci>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(Istemci)\BepInEx\core\BepInEx.Core.dll" Private="false" />
+    <Reference Include="$(Istemci)\BepInEx\core\BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="$(Istemci)\BepInEx\core\Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(Istemci)\BepInEx\core\0Harmony.dll" Private="false" />
+    <Reference Include="$(Istemci)\BepInEx\interop\Il2Cppmscorlib.dll" Private="false" />
+    <Reference Include="$(Istemci)\BepInEx\interop\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(Istemci)\BepInEx\interop\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="$(Istemci)\BepInEx\interop\UnityEngine.InputLegacyModule.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="Kopyala" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildThisFileDirectory)..\" />
+  </Target>
+</Project>
