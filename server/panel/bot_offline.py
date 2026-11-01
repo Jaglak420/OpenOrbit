@@ -200,8 +200,7 @@ class SymulacjaOffline:
                         with self._swiat_kontekst(pid, manager) as world_ready:
                             manager.telafi(step * tempo, now)
                             if world_ready:
-                                manager._toplum_tick(now)
-                                # bot.toplum.kaydet stores clan membership and bot leader decisions in clan profile file
+                                # Bot telafi senkronizes clan/CBS state inside the temporary world context.
                                 import klan as KL
                                 KL.kaydet()
                         manager.kaydet(now)
