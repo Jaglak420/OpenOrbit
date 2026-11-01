@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace OpenOrbit;
 
-public sealed class GMCenterOverlay : MonoBehaviour
+public class GMCenterOverlay : MonoBehaviour
 {
     sealed class PlayerRow
     {
