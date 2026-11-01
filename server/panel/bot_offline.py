@@ -102,10 +102,11 @@ class SymulacjaOffline:
             BY.AKTIF = manager
             BOT_TOPLUM.kaydol(manager, None)
             manager.toplum = True
-            # .asts otomatik olaraq tek-oyunculu istasyonları ortak kayda alır ve bot klanlarının CBS erişimini hazırlar.
+            # .asts mevcut istasyonları ortak kayda alır ve bot klanlarının CBS erişimini hazırlar.
             CB.Cbs(profil, None, self.log).asts
         except Exception:
             self.log('botlar offline: dünya bağlamı kurulamadı (%s)\\n%s' % (pid, traceback.format_exc()))
+            manager.toplum = False
             TP.OYUN, TP.BOTLAR, BY.AKTIF = old_oyun, old_botlar, old_aktif
             with KL.LOCK:
                 KL.KLANLAR.clear()
@@ -197,12 +198,8 @@ class SymulacjaOffline:
                             continue
                         manager = self._menedzer(pid, pakiet, now)
                         # Social decisions, clan budgets/diplomacy and CBS station strategy share the same world context.
-                        with self._swiat_kontekst(pid, manager) as world_ready:
+                        with self._swiat_kontekst(pid, manager):
                             manager.telafi(step * tempo, now)
-                            if world_ready:
-                                # Bot telafi senkronizes clan/CBS state inside the temporary world context.
-                                import klan as KL
-                                KL.kaydet()
                         manager.kaydet(now)
                         meta.update(last_wall=last + step, used_seconds=min(limit_h * 3600, used + step),
                                     paused=False, last_run=now, limit_hours=limit_h)
