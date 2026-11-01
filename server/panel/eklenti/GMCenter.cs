@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Threading;
 using BepInEx;
 using Il2CppInterop.Runtime;
 using UnityEngine;
@@ -38,6 +39,7 @@ public sealed class GMCenterOverlay : MonoBehaviour
     readonly object sync = new();
     readonly List<PlayerRow> players = new();
     readonly List<GateRow> gates = new();
+    readonly SynchronizationContext unityContext = SynchronizationContext.Current;
 
     Rect window = new(0, 0, 1120, 720);
     Vector2 playerScroll, gateScroll, logScroll;
@@ -127,11 +129,17 @@ public sealed class GMCenterOverlay : MonoBehaviour
         if (body != null)
             request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
-        using var response = await Http.SendAsync(request);
-        var content = await response.Content.ReadAsStringAsync();
+        using var response = await Http.SendAsync(request).ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException(content);
         return content;
+    }
+
+    void OnUnity(Action action)
+    {
+        if (unityContext == null) action();
+        else unityContext.Post(_ => action(), null);
     }
 
     async Task ConnectAsync()
