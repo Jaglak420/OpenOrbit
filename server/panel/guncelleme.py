@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 
 from dil import t as _
 
-DEPO = 'kaanumay/OpenOrbit'
+DEPO = 'Jaglak420/OpenOrbit'
 DAL = 'main'
 API = 'https://api.github.com'
 SURUM_DOSYASI = os.path.join('server', 'surum.txt')        # "$Format:%H %cI$" -> GitHub arşivinde "<commit> <tarih>"
