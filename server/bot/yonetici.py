@@ -120,7 +120,9 @@ class Yonetici(SohbetMotoru):
         for kd in self.paket.get('kadro', []):
             k = eski.get(str(kd['no']))
             if k is None:
-                k = dict(no=kd['no'], ad=kd['ad'], firma=kd['firma'], kisilik=kd['kisilik'], kayitli=not sirali)
+                kisilik = dict(kd['kisilik'])
+                kisilik['ozellik'] = dict(kisilik.get('ozellik') or {})
+                k = dict(no=kd['no'], ad=kd['ad'], firma=kd['firma'], kisilik=kisilik, kayitli=not sirali)
                 yeni.append(k)
             else:
                 # Panel kişilik temelini güncelleyebilir; savaş deneyimi ayrı delta olarak kalıcıdır.
