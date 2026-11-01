@@ -440,7 +440,17 @@ class Yonetici(SohbetMotoru):
             GV.ilerlet(b, GV.KILL_NPC, n=n, npc_kimlik=kimlik, harita=b.harita, y=self)
 
     def bot_oldu(self, b, katil):
-        pass
+        """Bot śmierć zapamiętuje również wtedy, gdy sprawcą był inny bot; doświadczenia lekko kształtują styl gry."""
+        if not katil:
+            return
+        przeciwnik = self.ada.get(str(katil).lower())
+        if przeciwnik is None or przeciwnik is b:
+            return
+        b.hafiza.olay(przeciwnik.ad, 'oldurdu_beni', self.now)
+        # Powtarzające się porażki uczą ostrożności; efekt jest mały i trwały, nie przepisuje osobowości.
+        cechy = b.k['kisilik'].setdefault('ozellik', {})
+        cechy['risk'] = round(max(0.05, min(0.95, float(cechy.get('risk', 0.5)) - 0.008)), 3)
+        cechy['sabir'] = round(max(0.05, min(0.95, float(cechy.get('sabir', 0.5)) + 0.003)), 3)
 
     # ------------------------------------------------------------ sorgular
     def cevrimici_ad(self, adlar):
@@ -460,14 +470,29 @@ class Yonetici(SohbetMotoru):
             return [b.ozet() for b in self.botlar]
 
     # ------------------------------------------------------------ bot-bot PvP (soyut)
-    def pvp_tick(self, now):
-        """Her haritada düşman botlar arası karşılaşma: avdaki (pvp hedefi) ya da saldırgan bot, haritadaki düşmanlardan birini
-        bulur (olasılık nüfusla artar). Somut botlar (oyuncunun haritası) burada değil, gerçekten savaşır (govde)."""
+    def pvp_tick(self, now, elapsed=PVP_SN):
+        """PvP con apoyo de escuadra: los aliados cercanos protegen, concentran el fuego y crean vínculos."""
         if not self.izin('pvp'):
             return
+        pasos = max(1.0, min(360.0, float(elapsed or PVP_SN) / PVP_SN))
+
+        def relacion(a, x):
+            if a is x:
+                return False
+            try:
+                from . import toplum as TP
+                rel = TP.klan_iliskisi(a, x)
+                if rel == 3:
+                    return False
+                if rel in (1, 2):
+                    return True
+            except Exception:
+                pass
+            return a.firma == x.firma
+
         for m, s in list(self.haritada.items()):
             if m not in K.HARITALAR:
-                continue                                 # kapı haritaları: her botun kendi kopyası
+                continue
             canli = [b for b in s if b.olu_bitis <= now and b.govde is None and not b.yolda]
             if len(canli) < 2 or not K.pvp_haritasi(m, canli[0].firma) and len({b.firma for b in canli}) < 2:
                 continue
@@ -478,30 +503,48 @@ class Yonetici(SohbetMotoru):
                 if a.olu_bitis > now:
                     continue
                 av = a.hedef is not None and a.hedef.ad == 'pvp'
-                ndusman = len(canli) - len(firmalar[a.firma])     # her bot için düşman listesi kurmak yerine sayı (büyük paketlerde O(n²))
+                ndusman = len(canli) - len(firmalar[a.firma])
                 if not ndusman:
                     continue
-                # X-1/X-2'de kendi firmasının haritasında başka firmaya saldırmak serbest; karşılaşma olasılığı
-                p = (0.12 if av else 0.006 * a.o('saldirganlik')) * min(1.0, ndusman / 3.0)
+                p0 = (0.12 if av else 0.006 * a.o('saldirganlik')) * min(1.0, ndusman / 3.0)
+                p = 1.0 - (1.0 - min(0.95, p0)) ** pasos
                 if a.r.random() >= p:
                     continue
                 f = a.r.choice([f for f in firmalar if f != a.firma])
-                hedef = a.r.choice(firmalar[f])
-                if a.k.get('klan'):
+                hedefler = firmalar[f]
+                try:
                     from . import toplum as TP
-                    savas = [h for h in firmalar[f] if TP.klan_iliskisi(a, h) == 3]
+                    savas = [h for h in hedefler if a.k.get('klan') and TP.klan_iliskisi(a, h) == 3]
                     if savas:
-                        hedef = a.r.choice(savas)        # klan savaşı: haritadaki düşman klanın üyesi önce
-                if hedef.olu_bitis > now or a.k.get('klan') and TP.klan_iliskisi(a, hedef) in (1, 2):
+                        hedefler = savas
+                except Exception:
+                    pass
+                if not hedefler:
+                    continue
+                hedef = a.r.choice(hedefler)
+                if hedef.olu_bitis > now or relacion(a, hedef):
+                    continue
+                sprzymierzency_a = [x for x in canli if relacion(a, x) and x.olu_bitis <= now]
+                sprzymierzency_b = [x for x in canli if relacion(hedef, x) and x.olu_bitis <= now]
+                # Grupa rywala może zniechęcić samotnego łowcę, chyba że ma wysoką odwagę lub osobisty uraz.
+                if len(sprzymierzency_b) > len(sprzymierzency_a) + 1 and a.r.random() > a.o('risk') * 0.65 + 0.15:
                     continue
                 oran = hedef.deger()['guc'] / max(0.5, a.deger()['guc'])
                 if not av and oran > 0.9 + 0.6 * a.o('risk'):
-                    continue                     # avda değilken güçlüye saldırmaz
+                    continue
                 if oran > 1.6 + a.o('risk') + a.ruh['ofke']:
-                    continue                     # avda bile çok güçlüye saldırmaz
-                sonuc = S.karsilasma(a, hedef, self, now)
-                if sonuc and sonuc[0] == 'kazandi' and sonuc[1].k.get('gorev'):
-                    GV.ilerlet(sonuc[1], GV.KILL_PLAYERS, harita=sonuc[1].harita, y=self)
+                    continue
+                wynik = S.karsilasma(a, hedef, self, now, wsparcie_a=min(3, len(sprzymierzency_a)),
+                                     wsparcie_b=min(3, len(sprzymierzency_b)))
+                if wynik and wynik[0] == 'kazandi':
+                    zwyciezca = wynik[1]
+                    ekipa = sprzymierzency_a if zwyciezca is a else sprzymierzency_b
+                    for sojusznik in ekipa[:3]:
+                        sojusznik.hafiza.olay(zwyciezca.ad, 'birlikte_avlandik', now, kat=0.5)
+                        zwyciezca.hafiza.olay(sojusznik.ad, 'yardim_etti', now, kat=0.4)
+                        sojusznik.ruh.it(moral=0.025)
+                    if wynik[1].k.get('gorev'):
+                        GV.ilerlet(wynik[1], GV.KILL_PLAYERS, harita=wynik[1].harita, y=self)
 
     # ------------------------------------------------------------ hızlı ilerletme
     def hizli(self, b, saniye, now, adim=900.0, pvp=False):
@@ -547,7 +590,7 @@ class Yonetici(SohbetMotoru):
         self.log('   botlar: jumpstart %d bot, %.1f sn' % (len(botlar), time.time() - t0))
 
     def telafi(self, saniye, now):
-        """Oyuncu yokken geçen sürenin bir kısmı: çevrimiçi olma eğilimi kadar bot ilerler."""
+        """Oyuncu yokken geçen süreyi ilerlet: bireysel aktiflik, PvP karşılaşmaları ve takım bağları da işlenir."""
         t0 = time.time()
         for b in self.botlar:
             if not b.kayitli:
@@ -556,7 +599,25 @@ class Yonetici(SohbetMotoru):
             s = saniye * pay * b.r.uniform(0.5, 1.5)
             if s > 0:
                 self.hizli(b, s, now, adim=900.0)
-        self.log('   botlar: çevrimdışı telafi %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
+        # Kороткие офлайн-периоды тоже должны давать результат. Временно формируем общую карту
+        # симулируемых пилотов, затем гарантированно возвращаем их в состояние offline.
+        self.haritada = {}
+        czas = []
+        for b in self.botlar:
+            if not b.kayitli:
+                continue
+            pay = sum(KS.ALISKANLIKLAR[b.k['kisilik']['aliskanlik']][1]) / 24.0 * self.ayar('cevrimici_oran', 0.6)
+            if b.r.random() < max(0.0, min(0.95, pay)):
+                b.cevrimici = True
+                self.haritada.setdefault(b.harita, set()).add(b)
+                czas.append(b)
+        try:
+            self.pvp_tick(now, elapsed=max(PVP_SN, saniye))
+        finally:
+            for b in czas:
+                b.cevrimici = False
+            self.haritada = {}
+        self.log('   botlar: çevrimdışı simülasyon %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
 
 
 def sunucu(yol, log=print):
