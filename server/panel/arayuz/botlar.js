@@ -606,9 +606,15 @@ function btModerasyon(d) {
 function btBasit(d) {
   const a = JSON.parse(JSON.stringify(d.ayarlar));
   const kaydet = () => btYama({ ayarlar: { basit_haritalar: a.basit_haritalar, basit_guc: a.basit_guc, basit_dost: a.basit_dost } });
-  return h('div', { class: 'card' }, h('h2', null, icon('bot'), T('Basit kip')),
-    h('p', { class: 'desc' }, T('Botlar haritalara seviyelerine göre dağıtılır ve orada kalır: uzaylı keser, düşmansa seni görünce gücüne göre saldırır ya da kaçar, ölünce aynı haritada doğar.')),
-    btBasitAyar(a, null, false, kaydet));
+  return h('div', { class: 'stack' },
+    h('div', { class: 'card' }, h('h2', null, icon('bot'), T('Basit kip')),
+      h('p', { class: 'desc' }, T('Botlar haritalara seviyelerine göre dağıtılır ve orada kalır: uzaylı keser, düşmansa seni görünce gücüne göre saldırır ya da kaçar, ölünce aynı haritada doğar.')),
+      btBasitAyar(a, null, false, kaydet)),
+    h('div', { class: 'card' }, h('h2', null, icon('clock'), T('Çevrimdışı simülasyon')),
+      btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Panel açıkken oyun kapalı olduğu sürece basit botlar kendi haritalarında PvE ilerlemesi yapar. 0 kapatır; tek bir ara için en çok 150 saat.'),
+        btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 150 })),
+      btSatir(T('Çevrimdışı simülasyon hızı'), T('Basit botların çevrimdışı PvE ilerleme hızı.'),
+        btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) }))));
 }
 
 // botun son düşüncesi (modelin kendi notu, İngilizce); tıklayınca editörün Düşünceler ya da Hafıza bölümü (bot/ani.py, bot/ajan.py)
