@@ -254,8 +254,6 @@ def karsilasma(a, b, y, now=None, wsparcie_a=0, wsparcie_b=0):
         factor = SL.carpan(ammo) / max(1.0, base)
         from . import katalog as KAT
         lasers = KAT.donat(bot.k['ekip'], bot.kalkan_payi())['lazer']
-        SL.harца(bot, ammo, max(1, len(lasers))) if False else None
-        SL.harсa(bot, ammo, max(1, len(lasers))) if False else None
         SL.harca(bot, ammo, max(1, len(lasers)))
         return max(0.5, min(4.0, factor))
     ga *= cephane_gucu(a)
