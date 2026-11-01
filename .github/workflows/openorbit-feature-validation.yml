@@ -117,6 +117,49 @@ jobs:
           assert ALIS.satin_al(credit_pilot, flax)
           assert credit_pilot.k["kredi"] < starting_credits
           PY
+
+      - name: Verify Dispatch gate expedition list
+        env:
+          PYTHONPATH: server
+        run: |
+          python - <<'PY'
+          from dispatch import Dispatch, AVAILABLE, IN_PROGRESS, READY
+          import kapi as GATES
+
+          class Profile:
+              def __init__(self):
+                  self.d = {}
+
+          profile = Profile()
+          dispatch = Dispatch(profile, kapilar=None, log=lambda _: None)
+          expected = {g["kimlik"] for key, g in GATES.KAPI.items() if key != "hades"}
+
+          # A fresh profile must still receive the full gate catalogue.
+          login = dispatch.login_msgs()
+          login_gate = next((f for name, f in login if name == "DispatchGetGateListCommand"), None)
+          assert login_gate is not None, "The Expedition window bootstrap must include a Gate list"
+          assert {g["gateId"] for g in login_gate["gateList"]} == expected
+          assert len(login_gate["gateList"]) == len(expected)
+          assert all(g["status"] == AVAILABLE for g in login_gate["gateList"])
+
+          # The explicit tab request must return the same populated catalogue.
+          explicit = dispatch.handle("DispatchGetGateListRequest", {})
+          assert len(explicit) == 1 and explicit[0][0] == "DispatchGetGateListCommand"
+          assert {g["gateId"] for g in explicit[0][1]["gateList"]} == expected
+
+          # Opening the main Dispatch window from either tab also primes the Gate tab.
+          retrievers = dispatch.retriever_list(AVAILABLE, now=1000)
+          assert any(name == "DispatchGetGateListCommand" for name, _ in retrievers)
+
+          # Active expeditions keep their in-progress/collectible state.
+          profile.d["dispatch"] = {"yuva": 2, "gonderilen": {}, "kapilar": {"alpha": 1500}}
+          active = dispatch.gate_list(now=1000)[0][1]["gateList"]
+          alpha = next(g for g in active if g["gateId"] == GATES.KAPI["alpha"]["kimlik"])
+          assert alpha["status"] == IN_PROGRESS and alpha["timeLeft"] == 500
+          ready = dispatch.gate_list(now=1500)[0][1]["gateList"]
+          alpha = next(g for g in ready if g["gateId"] == GATES.KAPI["alpha"]["kimlik"])
+          assert alpha["status"] == READY and alpha["timeLeft"] == 0
+          PY
       - name: Validate panel JavaScript
         run: |
           node --check server/panel/arayuz/panel.js

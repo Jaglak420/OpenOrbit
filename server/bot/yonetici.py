@@ -582,8 +582,9 @@ class Yonetici(SohbetMotoru):
             if self.izin('magaza'):
                 for _ in range(8):           # büyük adımda biriken parayı harcar (gerçek zamanda ayrı kararlar)
                     c = ALIS.aday(b)[0]
-                    if c is None or not ALIS.satin_al(b, c):
+                    if c is None or not b.ode(c[1], c[2]):
                         break
+                    b.ekle(c[3])
             b.ruh.d['yorgunluk'] = 0.0
         b.cevrimici = False
         b.hedef = None
