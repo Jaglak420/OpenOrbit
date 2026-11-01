@@ -164,7 +164,21 @@ def bot_offline_aktif():
                 or ARK.aktif() or COK.canli() or STATE['kapaniyor'])
 
 
-OFFLINE_BOTLAR = SymulacjaOffline(BT, bot_offline_aktif, log)
+def bot_offline_profil(pid):
+    """Bot paketinin dünyası etkin kayda aitse ortak klan/CBS profilini offline bağla."""
+    slot = KAY.active()
+    if not slot:
+        return None
+    try:
+        paket = BT.oku(pid)
+        if paket.get('dunya') != world_id(slot, False):
+            return None
+        return KAY.profile(slot)
+    except Exception:
+        return None
+
+
+OFFLINE_BOTLAR = SymulacjaOffline(BT, bot_offline_aktif, log, bot_offline_profil)
 
 
 def rp_kaynak():
