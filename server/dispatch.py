@@ -252,6 +252,8 @@ class Dispatch:
                 # at least once …"). Yalnız uygun kapıları listelemek sekmeyi boş bırakıyordu (oyuncu bildirimi 2026-10-28, img3)
                 out.append(mod('DispatchGateModule', gateId=g['kimlik'], status=AVAILABLE,
                                timeLeft=AY.sure(D['kapi']['sure_sn'], 'dispatch')))      # gönderilebilirken "Time required" sütunu (canlı test H35)
+        # Diagnostic: record exactly which gate ids/statuses are serialized for the client.
+        self.log('   Dispatch Gate list: %s' % (', '.join('%s=%s' % (KAPI.BY_ID.get(x['gateId'], x['gateId']), x['status']) for x in out) or '(empty)'))
         return [('DispatchGetGateListCommand', {'gateList': out})]
 
     def send_gate(self, f):
