@@ -23,6 +23,7 @@ const BT_KIPLER = {
   gelismis: { ad: N('Gelişmiş'), ic: 'brain', ozet: N('Normal kipin üstüne dil modeli (dahili Qwen3 4B, OpenAI, Claude, Gemini ya da kendi yerel LLM\'in): botlar seninle ve birbirleriyle gerçekten konuşur, ricalarını düşünüp karar verir, yardım çağrılarına gelir.') },
 };
 const BT_ARKETIP = { kasici: N('PvE kasıcı'), avci: N('PvP avcısı'), sosyal: N('Sosyal'), tuccar: N('Tüccar'), gorevci: N('Görevci'), rahat: N('Rahat'), lider: N('Lider') };
+const BT_ROL = { tank: N('Tank'), dps: N('Hasar'), destek: N('Destek'), kesif: N('Keşif'), denge: N('Dengeli') };
 const BT_HEDEF = { kasilma: N('Uzaylı kasıyor'), gorev: N('Görev yapıyor'), pvp: N('PvP avında'), alisveris: N('Alışverişte'), dinlenme: N('Dinleniyor'),
   kesif: N('Keşifte'), grup: N('Grupta'), yardim: N('Yardıma gidiyor'), basit: N('Uzaylı kasıyor'), satis: N('Kargo satıyor'),
   mod: N('Modda'), kapi: N('Galaksi kapısında'), duello: N('Düelloda') };
@@ -461,6 +462,7 @@ function btKadroTablosu(kadro) {
       h('div', { class: 'bt-pilot-ad' }, h('a', { href: '#', class: 'bt-ad', onclick: e => e.preventDefault() }, b.ad),
         b.ozel ? h('span', { class: 'badge info bt-ozel-rozet', title: T('Kendi eklediğin bot') }, T('Özel')) : null),
       h('div', { class: 'bt-pilot-alt' }, h('span', { class: 'bt-firma-et' }, f), T(BT_ARKETIP[b.arketip] || b.arketip),
+        badge(T(BT_ROL[b.rol] || b.rol || 'Dengeli'), 'info'),
         h('span', { class: 'dim' }, btOzellikOzeti(b.ozellik))));
     if (k === 'seviye') return h('b', { class: 'bt-sv' }, n);
     if (k === 'rutbe') return btRutbe(n || 1, 22);
