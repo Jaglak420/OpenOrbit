@@ -4,10 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using BepInEx;
+using Il2CppInterop.Runtime;
 using UnityEngine;
 
 namespace OpenOrbit;
@@ -48,6 +50,11 @@ public sealed class GMCenterOverlay : MonoBehaviour
     float nextRefresh;
 
     public GMCenterOverlay(IntPtr ptr) : base(ptr) { }
+
+    public GMCenterOverlay() : base(ClassInjector.DerivedConstructorPointer<GMCenterOverlay>())
+    {
+        ClassInjector.DerivedConstructorBody(this);
+    }
 
     void Update()
     {
