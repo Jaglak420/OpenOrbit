@@ -133,7 +133,7 @@ class Guncelleyici:
 
     # ------------------------------------------------------------ GitHub
     def _request(self, url, accept='application/vnd.github+json'):
-        req = Request(url, headers={'Accept': accept, 'User-Agent': 'OpenOrbit', 'X-GitHub-Api-Version': '2022-11-28'})
+        req = Request(url, headers={'Accept': accept, 'User-Agent': 'OpenOrbit', 'X-GitHub-Api-Version': '2022-11-28', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache'})
         tok = os.environ.get('DO_GITHUB_TOKEN')
         if tok and url.startswith(API + '/'):
             req.add_unredirected_header('Authorization', 'Bearer ' + tok)    # yönlendirmede (codeload) gönderilmez
