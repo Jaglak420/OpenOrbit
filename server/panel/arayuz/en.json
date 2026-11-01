@@ -2874,7 +2874,6 @@
   "Bağlantısı kapanır; son profil ana kayda yazılır ve arkadaşının yerel kopyası da son hâline eşitlenir.": "The connection will close; the latest profile is written to the master save and synchronized to your friend's local copy.",
   "Oyun kapanır; yerel kopyan bu bilgisayara kaydedilir, ana kopya host bilgisayarında kalır.": "The game will close; your local copy is saved on this computer, while the master copy remains on the host computer.",
   "Çevrimdışı simülasyon (en çok saat)": "Offline simulation (maximum hours)",
-  "Oyun istemcisi ve oyun sunucusu kapalıyken panel botların yaşamını simüle eder. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.": "While the game client and game server are closed, the panel simulates bot activity. Simulation stops before the game starts. 0 disables it; the maximum for one break is 150 hours.",
   "Çevrimdışı simülasyon hızı": "Offline simulation speed",
   "Çevrimdışı simülasyondaki ilerleme hız çarpanı.": "Progress speed multiplier during offline simulation.",
   "Canlı dünya — genel bakış": "Living world — overview",
@@ -2891,5 +2890,6 @@
   "Tank": "Tank",
   "Destek": "Support",
   "Keşif": "Scout",
-  "Dengeli": "Balanced"
+  "Dengeli": "Balanced",
+  "Oyun istemcisi ve oyun sunucusu kapalıyken OpenOrbit paneli açık kaldığı sürece botların yaşamı simüle edilir. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.": "While the game client and game server are closed, bot life is simulated as long as the OpenOrbit panel remains open. Simulation stops before the game starts. 0 disables it; the maximum for one break is 150 hours."
 }
