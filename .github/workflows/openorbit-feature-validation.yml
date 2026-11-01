@@ -69,3 +69,14 @@ jobs:
         run: |
           node --check server/panel/arayuz/panel.js
           node --check server/panel/arayuz/kayit.js
+          node --check server/panel/arayuz/botlar.js
+      - name: Import offline bot simulation
+        env:
+          PYTHONPATH: server:server/panel
+        run: |
+          python - <<'PY'
+          from bot_offline import SymulacjaOffline
+          from bot.yonetici import Yonetici
+          assert callable(SymulacjaOffline)
+          assert 'offline' in Yonetici.__init__.__code__.co_varnames
+          PY
