@@ -230,14 +230,15 @@ def _poisson(r, lam):
 
 
 # ------------------------------------------------------------------------------------------------------------ bot-bot PvP
-def karsilasma(a, b, y, now=None):
+def karsilasma(a, b, y, now=None, wsparcie_a=0, wsparcie_b=0):
     """İki düşman bot aynı haritada karşılaştı (yonetici.pvp_tick seçer): saldıran saldırır, öteki savaşır ya da kaçar; sonuç
     güç oranından, şanstan ve kişilikten. -> ('kazandi', kazanan, kaybeden) | ('kacti', kacan, kovalayan) | None"""
     now = now or time.time()
     from . import ekstra as EK
     from . import teknoloji as TK
-    ga = max(0.5, a.deger()['guc']) * EK.pvp_carpani(a) * TK.pvp_carpani(a)
-    gb = max(0.5, b.deger()['guc']) * EK.pvp_carpani(b) * TK.pvp_carpani(b)
+    # Sojusznicy w tym samym starciu dodają ograniczony bonus siły, bez zwielokrotniania nagród.
+    ga = max(0.5, a.deger()['guc']) * EK.pvp_carpani(a) * TK.pvp_carpani(a) * (1.0 + 0.12 * min(3, max(0, int(wsparcie_a))))
+    gb = max(0.5, b.deger()['guc']) * EK.pvp_carpani(b) * TK.pvp_carpani(b) * (1.0 + 0.12 * min(3, max(0, int(wsparcie_b))))
     oran = gb / ga                                 # >1: b daha güçlü
     if oran < 0.6 and b.r.random() < 1 - b.o('risk') and EK.gizlen(b):          # gizlenme CPU'su: görünmeden sıvışır
         b.ist('gizlendi')
