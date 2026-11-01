@@ -243,24 +243,27 @@ class Dispatch:
         out = []
         for key in self.gate_keys():
             g = KAPI.KAPI[key]
+            completed = bool(self.k.gate(key).get('tamam', 0))
             if key in self.st['kapilar']:
                 left = self.st['kapilar'][key] - now
-                out.append(mod('DispatchGateModule', gateId=g['kimlik'], status=IN_PROGRESS if left > 0 else READY, timeLeft=max(0, int(left))))
-            else:
-                # Her kapı listede; kurulmamış ya da hiç tamamlanmamış kapıyı gönderim reddeder (istemcinin metinleri
-                # dispatch_error-no-gate "Please prepare a Gate manually …", dispatch_error-incomplete-gate "… complete the Gate manually
-                # at least once …"). Yalnız uygun kapıları listelemek sekmeyi boş bırakıyordu (oyuncu bildirimi 2026-10-28, img3)
+                out.append(mod('DispatchGateModule', gateId=g['kimlik'], status=IN_PROGRESS if left > 0 else READY,
+                               timeLeft=max(0, int(left))))
+            elif completed:
+                # Dispatch jest odblokowany po co najmniej jednym ręcznym ukończeniu bramy.
+                # Nie wymagaj ponownego złożenia kolejnej instancji: jej części są niezależne od
+                # ukończonej wcześniej instancji (np. Kappa 113/120 po pierwszym ukończeniu).
                 out.append(mod('DispatchGateModule', gateId=g['kimlik'], status=AVAILABLE,
-                               timeLeft=AY.sure(D['kapi']['sure_sn'], 'dispatch')))      # gönderilebilirken "Time required" sütunu (canlı test H35)
+                               timeLeft=AY.sure(D['kapi']['sure_sn'], 'dispatch')))
         return [('DispatchGetGateListCommand', {'gateList': out})]
 
     def send_gate(self, f):
         key = KAPI.BY_ID.get(f.get('gateId'))
         if not key or key not in self.gate_keys() or key in self.st['kapilar']:
             return [('DispatchMessageCommand', {'messageType': ERROR_NO_GATE})]
-        if not self.k.built(key) or self.k.gate(key)['dalga'] != 0:          # kurulu ve 1. dalgada (forum 160334)
+        G = self.k.gate(key)
+        if G['dalga'] != 0:                                      # başlamış kapı Dispatch'e gönderilemez
             return [('DispatchMessageCommand', {'messageType': ERROR_NO_GATE})]
-        if not self.k.gate(key).get('tamam', 0):                                 # en az bir kez elle tamamlanmış
+        if not G.get('tamam', 0):                                # en az bir kez elle tamamlanmış
             return [('DispatchMessageCommand', {'messageType': ERROR_INCOMPLETE_GATE})]
         cost = {D['kapi']['ggeu']: 1}
         miss = INV.missing(self.p, cost)
