@@ -117,15 +117,12 @@ public sealed class GMCenterOverlay : MonoBehaviour
         }
     }
 
-    async Task<string> RequestAsync(string method, string path, object body = null, bool bootstrap = false)
+    async Task<string> RequestAsync(string method, string path, object body = null)
     {
         using var request = new HttpRequestMessage(new HttpMethod(method), api + path);
-        if (!bootstrap)
-        {
-            if (string.IsNullOrEmpty(token))
-                throw new InvalidOperationException("Brak tokenu GM. Włącz GM konsolę w ustawieniach deweloperskich.");
-            request.Headers.Add("X-Anahtar", token);
-        }
+        if (string.IsNullOrEmpty(token))
+            throw new InvalidOperationException("Brak tokenu lokalnego kanału panelu.");
+        request.Headers.Add("X-Anahtar", token);
         if (body != null)
             request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
