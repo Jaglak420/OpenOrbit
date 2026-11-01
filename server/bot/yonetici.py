@@ -440,21 +440,20 @@ class Yonetici(SohbetMotoru):
             GV.ilerlet(b, GV.KILL_NPC, n=n, npc_kimlik=kimlik, harita=b.harita, y=self)
 
     def bot_oldu(self, b, katil):
-        """Bot, başka bir bot tarafından öldürüldüğünde bunu hatırlar; deneyimler oyun tarzını az da olsa şekillendirir."""
-        if not katil:
+        """Ölüm deneyimi botun risk ve sabır dengesini değiştirir; bot rakibi varsa onun da tarzı etkilenir."""
+        if not katil or str(katil).lower() == b.ad.lower():
             return
         rakip = self.ada.get(str(katil).lower())
-        if rakip is None or rakip is b:
-            return
-        b.hafiza.olay(rakip.ad, 'oldurdu_beni', self.now)
-        # Tekrarlanan yenilgiler temkini az miktarda artırır; kişilik bir anda değişmez.
         ozellik = b.k['kisilik'].setdefault('ozellik', {})
-        ozellik['risk'] = round(max(0.05, min(0.95, float(ozellik.get('risk', 0.5)) - 0.008)), 3)
-        ozellik['sabir'] = round(max(0.05, min(0.95, float(ozellik.get('sabir', 0.5)) + 0.003)), 3)
-        # Kazanan da deneyimden etkilenir: başarılı avlar biraz daha cesur ve saldırgan yapar.
-        kazanan = rakip.k['kisilik'].setdefault('ozellik', {})
-        kazanan['risk'] = round(max(0.05, min(0.95, float(kazanan.get('risk', 0.5)) + 0.002)), 3)
-        kazanan['saldirganlik'] = round(max(0.05, min(0.95, float(kazanan.get('saldirganlik', 0.5)) + 0.002)), 3)
+        # Her ölüm biraz daha temkinli yapar; başka bir bot tarafından yenilmek daha güçlü iz bırakır.
+        etki = 0.008 if rakip is not None else 0.003
+        ozellik['risk'] = round(max(0.05, min(0.95, float(ozellik.get('risk', 0.5)) - etki)), 3)
+        ozellik['sabir'] = round(max(0.05, min(0.95, float(ozellik.get('sabir', 0.5)) + etki * 0.375)), 3)
+        if rakip is not None:
+            # Başarılı avlar kazananı az da olsa daha cesur ve saldırgan yapar.
+            kazanan = rakip.k['kisilik'].setdefault('ozellik', {})
+            kazanan['risk'] = round(max(0.05, min(0.95, float(kazanan.get('risk', 0.5)) + 0.002)), 3)
+            kazanan['saldirganlik'] = round(max(0.05, min(0.95, float(kazanan.get('saldirganlik', 0.5)) + 0.002)), 3)
 
     # ------------------------------------------------------------ sorgular
     def cevrimici_ad(self, adlar):
