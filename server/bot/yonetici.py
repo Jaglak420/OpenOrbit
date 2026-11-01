@@ -591,11 +591,31 @@ class Yonetici(SohbetMotoru):
     def telafi(self, saniye, now):
         """Oyuncu yokken geçen süreyi ilerlet: bireysel aktiflik, PvP, sosyal kararlar ve klan ilişkileri."""
         t0 = time.time()
+        baslangic = now - max(0.0, float(saniye))
+        yeni_kayitlar = {}
+        # Progressive kadro çevrimdışıyken de normal sunucu gibi zamanla kayıt olur.
+        # sinir=0: canlı oturum açmayız; kayıt olduktan sonra aşağıda soyut ilerleme uygulanır.
+        while True:
+            siralar = [self.sonraki_kayit.get(f, float('inf')) for f, sira in self.kayit_sirasi.items() if sira]
+            if not siralar:
+                break
+            due = min(siralar)
+            if due > now:
+                break
+            once = {b.k['no'] for b in self.botlar if not b.kayitli}
+            self.now = due
+            self.kayit_tick(due, 0, 0)
+            for b in self.botlar:
+                if b.k['no'] in once and b.kayitli:
+                    yeni_kayitlar[b.k['no']] = due
         for b in self.botlar:
             if not b.kayitli:
                 continue
+            etkin_sure = max(0.0, now - max(baslangic, yeni_kayitlar.get(b.k['no'], baslangic)))
+            if etkin_sure <= 0:
+                continue
             pay = sum(KS.ALISKANLIKLAR[b.k['kisilik']['aliskanlik']][1]) / 24.0 * self.ayar('cevrimici_oran', 0.6)
-            s = saniye * pay * b.r.uniform(0.5, 1.5)
+            s = etkin_sure * pay * b.r.uniform(0.5, 1.5)
             if s > 0:
                 self.hizli(b, s, now, adim=900.0)
         # Geçici çevrimiçi nüfus: takım PvP'si ve botların sosyal/klan kararları aynı çevrimdışı adımda yürür.
