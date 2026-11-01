@@ -123,7 +123,15 @@ class Yonetici(SohbetMotoru):
                 k = dict(no=kd['no'], ad=kd['ad'], firma=kd['firma'], kisilik=kd['kisilik'], kayitli=not sirali)
                 yeni.append(k)
             else:
-                k.update(ad=kd['ad'], firma=kd['firma'], kisilik=kd['kisilik'])      # panelde ad değişmiş olabilir
+                # Panel kişilik temelini güncelleyebilir; savaş deneyimi ayrı delta olarak kalıcıdır.
+                adaptasyon = k.get('kisilik_adaptasyon') or {}
+                kisilik = dict(kd['kisilik'])
+                ozellik = dict(kisilik.get('ozellik') or {})
+                for alan, delta in adaptasyon.items():
+                    taban = float(ozellik.get(alan, 0.5))
+                    ozellik[alan] = round(max(0.05, min(0.95, taban + float(delta))), 3)
+                kisilik['ozellik'] = ozellik
+                k.update(ad=kd['ad'], firma=kd['firma'], kisilik=kisilik)      # panelde ad değişmiş olabilir
             if self.kip == 'gelismis' and not cok_dilli:
                 k['kisilik'] = dict(k['kisilik'], dil='en')      # dahili dil modeli yalnız İngilizce (llm.py; başka sağlayıcıda serbest)
             b = Bot(k)
@@ -440,20 +448,27 @@ class Yonetici(SohbetMotoru):
             GV.ilerlet(b, GV.KILL_NPC, n=n, npc_kimlik=kimlik, harita=b.harita, y=self)
 
     def bot_oldu(self, b, katil):
-        """Ölüm deneyimi botun risk ve sabır dengesini değiştirir; bot rakibi varsa onun da tarzı etkilenir."""
+        """Ölüm deneyimi botun risk ve sabır dengesini değiştirir; değişimler paket kişiliğine göre kalıcı delta olarak tutulur."""
         if not katil or str(katil).lower() == b.ad.lower():
             return
         rakip = self.ada.get(str(katil).lower())
+        base = next((x.get('kisilik', {}).get('ozellik', {}) for x in self.paket.get('kadro', [])
+                     if int(x.get('no', -1)) == int(b.k.get('no', -2))), {})
+        adapt = b.k.setdefault('kisilik_adaptasyon', {})
         ozellik = b.k['kisilik'].setdefault('ozellik', {})
-        # Her ölüm biraz daha temkinli yapar; başka bir bot tarafından yenilmek daha güçlü iz bırakır.
         etki = 0.008 if rakip is not None else 0.003
-        ozellik['risk'] = round(max(0.05, min(0.95, float(ozellik.get('risk', 0.5)) - etki)), 3)
-        ozellik['sabir'] = round(max(0.05, min(0.95, float(ozellik.get('sabir', 0.5)) + etki * 0.375)), 3)
+        degisim = {'risk': -etki, 'sabir': etki * 0.375}
         if rakip is not None:
-            # Başarılı avlar kazananı az da olsa daha cesur ve saldırgan yapar.
-            kazanan = rakip.k['kisilik'].setdefault('ozellik', {})
-            kazanan['risk'] = round(max(0.05, min(0.95, float(kazanan.get('risk', 0.5)) + 0.002)), 3)
-            kazanan['saldirganlik'] = round(max(0.05, min(0.95, float(kazanan.get('saldirganlik', 0.5)) + 0.002)), 3)
+            kazanan = rakip.k.setdefault('kisilik_adaptasyon', {})
+            kazanan_base = next((x.get('kisilik', {}).get('ozellik', {}) for x in self.paket.get('kadro', [])
+                                 if int(x.get('no', -1)) == int(rakip.k.get('no', -2))), {})
+            for alan, art in (('risk', 0.002), ('saldirganlik', 0.002)):
+                kazanan[alan] = round(max(-0.9, min(0.9, float(kazanan.get(alan, 0.0)) + art)), 3)
+                rakip.k['kisilik'].setdefault('ozellik', {})[alan] = round(
+                    max(0.05, min(0.95, float(kazanan_base.get(alan, 0.5)) + kazanan[alan])), 3)
+        for alan, delta in degisim.items():
+            adapt[alan] = round(max(-0.9, min(0.9, float(adapt.get(alan, 0.0)) + delta)), 3)
+            ozellik[alan] = round(max(0.05, min(0.95, float(base.get(alan, 0.5)) + adapt[alan])), 3)
 
     # ------------------------------------------------------------ sorgular
     def cevrimici_ad(self, adlar):
