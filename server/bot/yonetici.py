@@ -611,12 +611,18 @@ class Yonetici(SohbetMotoru):
                 gecici.append(b)
         try:
             self.pvp_tick(now, elapsed=max(PVP_SN, saniye))
-            self.now = now
-            self._toplum_tick(now)
+            # Offline adımları duvar saatinden yavaştır; sosyal kararları da bu sanal zaman içinde
+            # dakikalık aralıklarla çalıştır ki klan başvuruları, diplomasi ve CBS kararları atlanmasın.
+            sanal = now - saniye
+            while sanal < now:
+                sanal = min(now, sanal + 60.0)
+                self.now = sanal
+                self._toplum_tick(sanal)
         finally:
             for b in gecici:
                 b.cevrimici = False
             self.haritada = {}
+            self.now = now
         self.log('   botlar: çevrimdışı simülasyon %.0f dk, %.1f sn' % (saniye / 60, time.time() - t0))
 
 
