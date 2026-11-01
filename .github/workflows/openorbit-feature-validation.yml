@@ -80,12 +80,13 @@ jobs:
           python - <<'PY'
           from bot_offline import SymulacjaOffline
           from bot.yonetici import Yonetici
+          from bot import yonetici as BOT_MANAGER
           from botlar import AYARLAR
           from bot.kisilik import rol
           assert callable(SymulacjaOffline)
           assert 'offline' in Yonetici.__init__.__code__.co_varnames
           assert 'offline_tick' in Yonetici.telafi.__code__.co_varnames
-          assert Yonetici.VARSAYILAN['izinler']['klan_ksi'] is True
+          assert BOT_MANAGER.VARSAYILAN['izinler']['klan_ksi'] is True
           assert AYARLAR['telafi_saat'] == ('tam', 0, 150, 150)
           assert rol({'arketip': 'lider', 'ozellik': {}}) == 'destek'
           PY
