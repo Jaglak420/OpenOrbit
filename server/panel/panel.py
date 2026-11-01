@@ -51,6 +51,7 @@ from arkadas import Arkadas, ArkadasHatasi  # noqa: E402
 from coklu import Coklu, CokluHatasi  # noqa: E402
 import dunyalar as DW          # noqa: E402
 import botlar as BT            # noqa: E402  (Botlar sayfası: bot paketleri)
+from bot_offline import SymulacjaOffline
 import llm_kurulum as LLMK     # noqa: E402  (Gelişmiş bot kipinin dil modeli)
 import discord_rp as DRP       # noqa: E402  (Discord Rich Presence)
 from bot import llm_saglayici as SG  # noqa: E402  (dil modelinin sağlayıcısı: dahili ya da kullanıcının seçtiği)
@@ -156,6 +157,14 @@ TOKEN = secrets.token_hex(16)
 STATE = {'oyna': {'calisiyor': False, 'adimlar': [], 'hata': None, 'bitti': None, 'sadece_sunucu': False},
          'nabiz': time.monotonic(), 'pencere_kapandi': False, 'pencere_izleniyor': False, 'son_yedek': 0.0, 'kapaniyor': False,
          'sonraki_denetim': time.time() + 8, 'guncellendi': '--guncellendi' in sys.argv, 'srv': None, 'acilis': time.time()}
+
+def bot_offline_aktif():
+    """Offline simülatörü yalnızca oyun sunucusu, istemciler ve başlatma tamamen durmuşken çalışır."""
+    return not (YON.running() or YON.client_alive() or IST.running_clients() or STATE['oyna']['calisiyor']
+                or ARK.aktif() or COK.canli() or STATE['kapaniyor'])
+
+
+OFFLINE_BOTLAR = SymulacjaOffline(BT, bot_offline_aktif, log)
 
 
 def rp_kaynak():
@@ -690,6 +699,7 @@ def _step(text, durum='calisiyor'):
 def launch(sadece_sunucu=False, arkadas=False):
     o = STATE['oyna']
     try:
+        OFFLINE_BOTLAR.pauza()                 # önce tüm çevrimdışı bot kayıtlarını yaz, ardından oyun sunucusunu aç
         _step(_('Denetleniyor'))
         if ARK.aktif():
             raise Hata(_('Arkadaşının sunucusundasın: önce oradan ayrıl.'))
@@ -785,6 +795,7 @@ def start_launch(sadece_sunucu=False, arkadas=False):
 
 def join_friend(b):
     """Arkadaşlarınla Oyna > Join: denetimler panelde (istemci, açık oyun ve sunucular), katılma arka planda (arkadas.py)."""
+    OFFLINE_BOTLAR.pauza()
     if STATE['oyna']['calisiyor']:
         raise Hata(_('Başlatma sürüyor.'))
     slot = str(b.get('kayit') or '') or KAY.active()
@@ -866,7 +877,9 @@ def ticker():
     while not STATE['kapaniyor']:
         time.sleep(5)
         try:
-            update_tick(time.time())
+            now = time.time()
+            OFFLINE_BOTLAR.tick(now)
+            update_tick(now)
             iv = CFG.get('yedek_aralik_dk')
             if YON.client_alive() and YON.slot and iv and time.time() - STATE['son_yedek'] >= iv * 60:
                 KAY.backup(YON.slot, 'oto', _('Oyun sırasında'))
@@ -894,6 +907,7 @@ def istemci_bekle(sn=8):
 def shutdown():
     if STATE['kapaniyor']:
         return
+    OFFLINE_BOTLAR.pauza()
     STATE['kapaniyor'] = True
     log('panel kapanıyor')
     try:
