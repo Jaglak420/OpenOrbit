@@ -483,9 +483,8 @@ def gm_admin(game):
     return s
 
 
-def gm_bootstrap(game, anahtar):
-    # Kanal yalnız 127.0.0.1 üzerinde dinliyor. Bu ilk el sıkışma yalnız arayüzün
-    # oturum anahtarını almasını sağlar; tüm veri/işlem uçları anahtarla korunur.
+def gm_bootstrap(game):
+    # The caller must already authenticate with X-Anahtar; no channel secret is returned.
     gm_admin(game)
     return {'enabled': True, 'port': PORT}
 
