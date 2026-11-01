@@ -388,7 +388,7 @@ function btGenel(d) {
       btSatir(T('Çevrimiçi olma eğilimi'), T('Botların oyun saatlerine göre çevrimiçi olma isteği; yüksekse aynı anda daha çok bot.'),
         btKaydirac(a.cevrimici_oran, v => btA('cevrimici_oran', v), { min: 0.05, max: 2, step: 0.05, fmt: v => '%' + Math.round(v * 100) })),
       btSatir(T('Aynı anda en çok çevrimiçi'), T('0: sınırsız.'), btSayi(a.en_cok_cevrimici, v => btA('en_cok_cevrimici', v), { min: 0, max: 3000 })),
-      btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Oyun istemcisi ve oyun sunucusu kapalıyken panel botların yaşamını simüle eder. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.'),
+      btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Oyun istemcisi ve oyun sunucusu kapalıyken OpenOrbit paneli açık kaldığı sürece botların yaşamı simüle edilir. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.'),
         btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 150 })),
       btSatir(T('Çevrimdışı simülasyon hızı'), T('Çevrimdışı simülasyondaki ilerleme hız çarpanı.'), 
         btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) })),
