@@ -52,3 +52,5 @@ namespace UnityEngine
     public static class Screen { public static int width => 1920; public static int height => 1080; }
     public static class Mathf { public static float Clamp(float value, float min, float max) => Math.Max(min, Math.Min(value, max)); }
 }
+
+namespace BepInEx { }
