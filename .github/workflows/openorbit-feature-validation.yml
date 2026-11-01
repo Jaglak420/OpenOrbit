@@ -89,4 +89,53 @@ jobs:
           assert BOT_MANAGER.VARSAYILAN['izinler']['klan_ksi'] is True
           assert AYARLAR['telafi_saat'] == ('tam', 0, 150, 150)
           assert rol({'arketip': 'lider', 'ozellik': {}}) == 'destek'
+
+          # Drive the real offline service with an empty basic-mode package to verify
+          # game-stop, game-start pause and a fresh offline window after the next stop.
+          import json
+          import os
+          import tempfile
+          import threading
+
+          with tempfile.TemporaryDirectory() as root:
+              package = {'dunya': 'standart', 'kip': 'basit', 'kadro': [],
+                         'ayarlar': {'telafi_saat': 1, 'telafi_oran': 1.0}}
+              package_path = os.path.join(root, 'demo.json')
+              with open(package_path, 'w', encoding='utf8') as fh:
+                  json.dump(package, fh)
+
+              class FakeBotStore:
+                  _KILIT = threading.RLock()
+                  def liste_kimlik(self):
+                      return ['demo']
+                  def dosya_yolu(self, pid):
+                      return package_path
+                  def durum_yolu(self, pid):
+                      return os.path.join(root, pid, 'durum.json')
+                  def oku(self, pid):
+                      return package
+
+              running = {'game': False}
+              sim = SymulacjaOffline(FakeBotStore(), lambda: not running['game'], log=lambda _: None)
+              sim.tick(1000)  # panel noticed that the game is closed
+              sim.tick(1300)  # 300 seconds of offline time
+              meta_path = os.path.join(root, 'demo', 'offline.json')
+              with open(meta_path, encoding='utf8') as fh:
+                  meta = json.load(fh)
+              assert meta['used_seconds'] == 300
+              assert meta['sim_time'] == 1300
+
+              running['game'] = True
+              sim.tick(1301)  # game started: save and pause
+              with open(meta_path, encoding='utf8') as fh:
+                  meta = json.load(fh)
+              assert meta['paused'] is True and meta['used_seconds'] == 0
+
+              running['game'] = False
+              sim.tick(1400)  # next offline period starts
+              sim.tick(1700)
+              with open(meta_path, encoding='utf8') as fh:
+                  meta = json.load(fh)
+              assert meta['used_seconds'] == 300
+              assert meta['sim_time'] == 1700
           PY
