@@ -487,7 +487,7 @@ def gm_bootstrap(game, anahtar):
     # Kanal yalnız 127.0.0.1 üzerinde dinliyor. Bu ilk el sıkışma yalnız arayüzün
     # oturum anahtarını almasını sağlar; tüm veri/işlem uçları anahtarla korunur.
     gm_admin(game)
-    return {'enabled': True, 'port': PORT, 'token': anahtar}
+    return {'enabled': True, 'port': PORT}
 
 
 def gm_players(game):
