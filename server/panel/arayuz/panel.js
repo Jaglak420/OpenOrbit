@@ -236,6 +236,7 @@ const PAGES = [
   { id: 'botlar', ad: N('Botlar'), ic: 'bot', beta: true, sub: N('Gerçek oyuncu gibi gelişen, konuşan ve klan kuran botlar: paket oluştur, bir dünyaya ata.') },
   { id: 'klanlar', ad: N('Klany'), ic: 'users', sub: N('Edytuj wszystkie klany, także botów, oraz sojusze, pakty o nieagresji i wojny.') },
   { id: 'etkinlikler', ad: N('Etkinlikler'), ic: 'calendar', sub: N('Her etkinlik takvime göre ya da elle açık / kapalı.') },
+  { id: 'galaxy_trek', ad: N('Galaxy Trek'), ic: 'trophy', sub: N('Galaxy Trek aşama ödüllerini ve eşya miktarlarını düzenle.') },
   { id: 'takvim', ad: N('Etkinlik Takvimi'), ic: 'agenda', sub: N('Etkinlikler ve seansları saatlik, günlük, haftalık ve aylık görünümde (yerel saat).') },
   { id: 'istemci', ad: N('İstemci'), ic: 'monitor', sub: N('Oyun klasörü, sürüm denetimi ve görüntü seçenekleri.') },
   { id: 'sunucu', ad: N('Sunucu'), ic: 'server', sub: N('Sunucu süreçleri, portlar, davranış ve günlükler.') },
@@ -1093,7 +1094,41 @@ function paintEff(ust) {          // alt ayarların etkin çarpanı (genel x alt
 const fmtMult = x => (Math.round(x * 100) / 100).toLocaleString(LOC());
 
 // ================================================================== ETKİNLİKLER
-async function renderEtkinlikler(list) {
+async 
+async function renderGalaxyTrek() {
+  const data = await act(() => api('/api/galaxy_trek'));
+  if (!data || S.page !== 'galaxy_trek') return;
+  const stages = data.basamaklar || [];
+  const draw = () => {
+    const cards = stages.map(stage => {
+      const items = stage.esyalar || [];
+      const rows = () => items.map((item, index) => h('div', { class: 'row wrap', style: { gap: '8px', alignItems: 'center' } },
+        h('input', { class: 'input', value: item.lootId, placeholder: 'lootId (np. equipment_weapon_laser_lf-5-mf)', style: { flex: '1 1 340px' },
+          onchange: ev => { item.lootId = ev.target.value; } }),
+        h('input', { class: 'input', inputMode: 'numeric', value: String(item.amount), style: { width: '110px' },
+          onchange: ev => { item.amount = Number(ev.target.value); } }),
+        btn(T('Usuń'), () => { items.splice(index, 1); draw(); }, 'danger sm', 'trash')));
+      return h('div', { class: 'card stack' },
+        h('div', { class: 'row between wrap' }, h('h2', null, T('Etap: {0} planet', stage.gereken)),
+          h('span', { class: 'badge' }, T('ID {0}', stage.kimlik))),
+        stage.unvan ? h('div', { class: 'help' }, T('Tytuł: {0}', stage.unvan)) : null,
+        h('div', { class: 'stack', style: { gap: '8px' } }, rows()),
+        h('div', { class: 'row wrap' },
+          btn(T('Dodaj przedmiot'), () => { items.push({ lootId: 'equipment_weapon_laser_lf-5-mf', amount: 1 }); draw(); }, 'secondary sm', 'plus')));
+    });
+    $('#content').replaceChildren(h('div', { class: 'stack' },
+      h('div', { class: 'alert bilgi' }, icon('info'), h('div', null,
+        T('Edytujesz nagrody przyznawane po odebraniu danego progu Galaxy Trek. Identyfikator LF-5 Mortifier: equipment_weapon_laser_lf-5-mf. Zmiany zapisuj przy zatrzymanym serwerze gry; po zapisie uruchom serwer ponownie.'))),
+      ...cards,
+      h('div', { class: 'row end' }, btn(T('Zapisz nagrody'), async () => {
+        const saved = await act(() => api('/api/galaxy_trek', { basamaklar: stages }), T('Nagrody Galaxy Trek zapisane.'));
+        if (saved) { stages.splice(0, stages.length, ...saved.basamaklar); draw(); }
+      }, 'primary', 'save'))));
+  };
+  draw();
+}
+
+function renderEtkinlikler(list) {
   const r = list || await act(() => api('/api/etkinlikler')); if (!r || S.page !== 'etkinlikler') return;
   const set = (key, v) => act(() => api('/api/etkinlikler', { degisiklik: { [key]: v } })).then(x => x && renderEtkinlikler(x));
   const bulk = (to, tur) => act(() => api('/api/etkinlikler', { hepsi: to, tur }), T('Güncellendi.')).then(x => x && renderEtkinlikler(x));
@@ -2727,7 +2762,7 @@ async function muzayedeOlayTick() {
   } catch (e) { /* oyuna girilmedi */ } finally { muzayedeOlayTick.busy = false; }
 }
 
-const RENDER = { oyna: renderOyna, arkadas: renderArkadas, kayitlar: () => renderKayitlar(), ayarlar: renderAyarlar, etkinlikler: () => renderEtkinlikler(), istemci: () => renderIstemci(),
+const RENDER = { galaxy_trek: renderGalaxyTrek, oyna: renderOyna, arkadas: renderArkadas, kayitlar: () => renderKayitlar(), ayarlar: renderAyarlar, etkinlikler: () => renderEtkinlikler(), istemci: () => renderIstemci(),
   takvim: enterTakvim, sunucu: renderSunucu, panel: renderPanel, dunya: () => renderDunya(), botlar: () => renderBotlar(), klanlar: () => renderKlanlar(), magaza: renderMagaza, hangar: renderHangar, skylab: renderSkylab, muzayede: renderMuzayede };
 
 // ------------------------------------------------------------------ başlangıç
