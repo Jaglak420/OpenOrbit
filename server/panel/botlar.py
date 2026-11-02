@@ -581,13 +581,15 @@ def ozet(pid):
 
 
 def liste():
+    """Özet pakietów; uszkodzony lub starszy pojedynczy zapis nie może blokować całej zakładki."""
     out = []
     for pid in liste_kimlik():
         try:
             out.append(ozet(pid))
-        except BotHatasi:
-            pass
-    out.sort(key=lambda x: x['guncelleme'] or '', reverse=True)
+        except (BotHatasi, KeyError, TypeError, ValueError, OSError):
+            # Nie naprawiamy ani nie nadpisujemy pliku: pomijamy wyłącznie wadliwy wpis.
+            continue
+    out.sort(key=lambda x: x.get('guncelleme') or '', reverse=True)
     return out
 
 
