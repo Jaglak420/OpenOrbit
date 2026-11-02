@@ -39,9 +39,6 @@ def get():
     ]}
 
 def save(body):
-    import surecler
-    if surecler.YON.running():
-        raise GalaxyTrekPanelHatasi('Najpierw zatrzymaj serwer gry. Zmiany nagród zapisuje się przy wyłączonym serwerze.')
     rows = body.get('basamaklar')
     if not isinstance(rows, list):
         raise GalaxyTrekPanelHatasi('Brak listy etapów.')
