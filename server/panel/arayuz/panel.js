@@ -1094,7 +1094,6 @@ function paintEff(ust) {          // alt ayarların etkin çarpanı (genel x alt
 const fmtMult = x => (Math.round(x * 100) / 100).toLocaleString(LOC());
 
 // ================================================================== ETKİNLİKLER
-async 
 async function renderGalaxyTrek() {
   const data = await act(() => api('/api/galaxy_trek'));
   if (!data || S.page !== 'galaxy_trek') return;
