@@ -70,7 +70,19 @@ const btDunyaAd = id => (BT.liste?.dunyalar || []).find(w => w.id === id)?.ad ||
 
 // ------------------------------------------------------------------ giriş noktası
 async function renderBotlar() {
-  const r = await act(() => api('/api/botlar')); if (!r || S.page !== 'botlar') return;
+  let r;
+  try {
+    r = await api('/api/botlar');
+  } catch (e) {
+    if (S.page !== 'botlar') return;
+    btDoldur($('#content'), h('div', { class: 'stack' },
+      h('div', { class: 'card' }, h('h2', null, icon('alert'), T('Nie można załadować botów')),
+        h('p', { class: 'desc' }, T('Serwer panelu zwrócił błąd podczas pobierania listy pakietów botów. Zapisane pakiety nie zostały zmienione.')),
+        h('pre', { class: 'code small', style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, String(e?.message || e)),
+        btn(T('Spróbuj ponownie'), () => renderBotlar(), 'primary', 'refresh'))));
+    return;
+  }
+  if (!r || S.page !== 'botlar') return;
   BT.liste = r;
   if (BT.pid && !r.liste.some(p => p.id === BT.pid)) BT.pid = null;
   if (!BT.pid) return btKitaplik();
