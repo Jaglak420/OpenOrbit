@@ -51,6 +51,7 @@ from arkadas import Arkadas, ArkadasHatasi  # noqa: E402
 from coklu import Coklu, CokluHatasi  # noqa: E402
 import dunyalar as DW          # noqa: E402
 import botlar as BT            # noqa: E402  (Botlar sayfası: bot paketleri)
+import klanlar as KP             # noqa: E402  (administracja klanów i dyplomacji)
 from bot_offline import SymulacjaOffline
 import llm_kurulum as LLMK     # noqa: E402  (Gelişmiş bot kipinin dil modeli)
 import discord_rp as DRP       # noqa: E402  (Discord Rich Presence)
@@ -1498,6 +1499,8 @@ def destekciler():
 
 
 def h_get(path, q):
+    if path.startswith('/api/klanlar'):
+        return KP.get(path, q)
     if path.startswith('/api/bot'):                 # Botlar (botlar.py)
         return bot_get(path, q)
     if path.startswith('/api/dunya'):               # Dünya Editörü (dunyalar.py)
@@ -1594,6 +1597,10 @@ def h_get(path, q):
 
 
 def h_post(path, b):
+    if path.startswith('/api/klanlar/'):
+        if YON.running():
+            raise Hata(_('Önce oyun sunucusunu durdurun; klan kaydı oyun açıkken sunucu tarafından yazılır.'))
+        return KP.post(path, b)
     if path.startswith('/api/bot/'):                # Botlar (botlar.py)
         return bot_post(path, b)
     if path.startswith('/api/dunya') or path == '/api/kayitlar/dunya':      # Dünya Editörü (dunyalar.py)
