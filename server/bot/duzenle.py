@@ -114,7 +114,7 @@ def uygula(k, kd, deg, cevrimici=False):
     deg = deg if isinstance(deg, dict) else {}
     isler = []
     ekip = k.setdefault('ekip', K.yeni_ekip()) if k is not None else None
-    durum_gerek = [a for a in deg if a not in ('ozellik',)]
+    durum_gerek = [a for a in deg if a not in ('ozellik', 'arketip')]
     if durum_gerek and k is None:
         raise DuzenlemeHatasi('durum_yok')
     E = K.ESYA
