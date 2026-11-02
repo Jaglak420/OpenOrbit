@@ -89,11 +89,11 @@ function btKitaplik() {
   const r = BT.liste;
   const kart = p => h('div', { class: 'bt-kart', onclick: e => { if (!e.target.closest('button')) btAc(p.id); } },
     h('div', { class: 'bt-kart-ust k-' + p.kip }, btArt('bot_kip_' + p.kip, 'dron_editor', 'bt-kart-art'),
-      h('div', null, h('b', null, p.ad), h('div', { class: 'small muted' }, T(BT_KIPLER[p.kip].ad) + ' · ' + T('{0} bot', p.adet)))),
+      h('div', null, h('b', null, p.ad), h('div', { class: 'small muted' }, T((BT_KIPLER[p.kip] || BT_KIPLER.normal).ad) + ' · ' + T('{0} bot', p.adet)))),
     h('div', { class: 'bt-kart-govde' },
       h('div', { class: 'row wrap', style: { gap: '6px' } }, p.dunya ? badge([icon('globe'), btDunyaAd(p.dunya)], 'info') : badge(T('Dünyaya atanmadı'), 'warn'),
         p.kip !== 'basit' ? badge(p.gelisim === 'jumpstart' ? 'Jumpstart' : 'Progressive', '') : null),
-      btFirmaCubugu(p.firmalar),
+      btFirmaCubugu(Array.isArray(p.firmalar) ? p.firmalar : [0, 0, 0]),
       h('div', { class: 'small muted' }, p.seviye_ort != null ? T('Ortalama seviye {0} · en yüksek {1}', p.seviye_ort, p.seviye_enb)
         : T('Henüz oynanmadı: botlar ilk girişte başlar.')),
       p.aciklama ? h('div', { class: 'small ellipsis' }, p.aciklama) : null),
