@@ -236,7 +236,7 @@ const PAGES = [
   { id: 'botlar', ad: N('Botlar'), ic: 'bot', beta: true, sub: N('Gerçek oyuncu gibi gelişen, konuşan ve klan kuran botlar: paket oluştur, bir dünyaya ata.') },
   { id: 'klanlar', ad: N('Klany'), ic: 'users', sub: N('Edytuj wszystkie klany, także botów, oraz sojusze, pakty o nieagresji i wojny.') },
   { id: 'etkinlikler', ad: N('Etkinlikler'), ic: 'calendar', sub: N('Her etkinlik takvime göre ya da elle açık / kapalı.') },
-  { id: 'galaxy_trek', ad: N('Galaxy Trek'), ic: 'trophy', sub: N('Galaxy Trek aşama ödüllerini ve eşya miktarlarını düzenle.') },
+  { id: 'galaxy_trek', ad: N('Galaxy Trek'), ic: 'orbit', sub: N('Galaxy Trek aşama ödüllerini ve eşya miktarlarını düzenle.') },
   { id: 'takvim', ad: N('Etkinlik Takvimi'), ic: 'agenda', sub: N('Etkinlikler ve seansları saatlik, günlük, haftalık ve aylık görünümde (yerel saat).') },
   { id: 'istemci', ad: N('İstemci'), ic: 'monitor', sub: N('Oyun klasörü, sürüm denetimi ve görüntü seçenekleri.') },
   { id: 'sunucu', ad: N('Sunucu'), ic: 'server', sub: N('Sunucu süreçleri, portlar, davranış ve günlükler.') },
