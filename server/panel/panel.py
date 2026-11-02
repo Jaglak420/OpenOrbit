@@ -52,6 +52,7 @@ from coklu import Coklu, CokluHatasi  # noqa: E402
 import dunyalar as DW          # noqa: E402
 import botlar as BT            # noqa: E402  (Botlar sayfası: bot paketleri)
 import klanlar as KP             # noqa: E402  (administracja klanów i dyplomacji)
+import galaxy_trek as GTP         # noqa: E402  (edytor nagród etapowych Galaxy Trek)
 from bot_offline import SymulacjaOffline
 import llm_kurulum as LLMK     # noqa: E402  (Gelişmiş bot kipinin dil modeli)
 import discord_rp as DRP       # noqa: E402  (Discord Rich Presence)
@@ -1499,6 +1500,8 @@ def destekciler():
 
 
 def h_get(path, q):
+    if path == '/api/galaxy_trek':
+        return GTP.get()
     if path.startswith('/api/klanlar'):
         return KP.get(path, q)
     if path.startswith('/api/bot'):                 # Botlar (botlar.py)
@@ -1597,6 +1600,10 @@ def h_get(path, q):
 
 
 def h_post(path, b):
+    if path == '/api/galaxy_trek':
+        if YON.running():
+            raise Hata(_('Najpierw zatrzymaj serwer gry; nagrody Galaxy Trek zapisuje się przy wyłączonym serwerze.'))
+        return GTP.save(b)
     if path.startswith('/api/klanlar/'):
         if YON.running():
             raise Hata(_('Önce oyun sunucusunu durdurun; klan kaydı oyun açıkken sunucu tarafından yazılır.'))
