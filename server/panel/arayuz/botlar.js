@@ -244,7 +244,7 @@ function btAdim3(w, ciz) {
       h('div', { class: 'small muted' }, w.gelisim === 'progressive'
         ? T('Herkes oyunun başında olduğu gibi 1. seviyede, Phoenix ile kendi üssünde başlar ve gerçek oyuncu gibi gelişir.')
         : T('Kadro gerçekçi bir dağılımla başlar: çok acemi, çok orta seviye, az güçlü oyuncu. Donanımları, paraları ve seviyeleri tutarlı.'))),
-    w.gelisim === 'jumpstart' ? field(T('Ortalama oyun süresi (saat)'), btKaydirac(w.ayarlar.jumpstart_saat, v => { w.ayarlar.jumpstart_saat = v; }, { min: 5, max: 500, step: 5 })) : null,
+    w.gelisim === 'jumpstart' ? field(T('Ortalama oyun süresi (saat)'), btKaydirac(w.ayarlar.jumpstart_saat, v => { w.ayarlar.jumpstart_saat = v; }, { min: 5, max: 1500, step: 5 })) : null,
     field(T('Adların dili'), btDilSec(w.ad_dili, v => { w.ad_dili = v; }, T('Karışık')),
       h('div', { class: 'small muted' }, T('Botların kullanıcı adları bu dilin oyuncularına benzer.'))),
     field(T('Ad kaynağı'), btAdKaynagi(w.ad_kaynagi, v => { w.ad_kaynagi = v; }),
@@ -272,7 +272,7 @@ function btBasitAyar(a, ciz, sihirbaz = false, kaydet = null) {
     field(T('Harita başına bot'), ust, h('div', { class: 'small muted' }, T('Firma haritalarında her firmanın haritasına ayrı ayrı (X-3 = 1-3, 2-3, 3-3), ortak haritalara (4-1…4-5) bir kez. Toplam: '), toplam)),
     field(T('Güç oranı'), btKaydirac(a.basit_guc, v => { a.basit_guc = v; kaydet && kaydet(); }, { min: 0.3, max: 3, step: 0.1, fmt: v => '×' + v.toFixed(1) }),
       h('div', { class: 'small muted' }, T('Haritanın tipik oyuncusunun donanımına göre: 1 aynı, 2 iki kat güçlü, 0,5 zayıf.'))),
-    field(T('Dost bot payı'), btKaydirac(a.basit_dost, v => { a.basit_dost = v; kaydet && kaydet(); }, { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) }),
+    field(T('Dost bot payı'), btKaydirac(a.basit_dost, v => { a.basit_dost = v; kaydet && kaydet(); }, { min: 0, max: 10, step: 0.1, fmt: v => '%' + Math.round(v * 100) }),
       h('div', { class: 'small muted' }, T('Firma haritasındaki botların ne kadarı haritanın firmasından (geri kalanı düşman).'))));
 }
 
@@ -382,7 +382,7 @@ function btGenel(d) {
       d.kip !== 'basit' ? btSatir(T('Gelişim'), d.gelisim === 'jumpstart' ? T('Kadro gerçekçi bir dağılımla başlar (ilk açılışta).') : T('Herkes 1. seviyede, kendi üssünde başlar.'),
         btSeg([['progressive', 'Progressive'], ['jumpstart', 'Jumpstart']], d.gelisim, v => btYama({ gelisim: v }))) : null,
       d.kip !== 'basit' && d.gelisim === 'jumpstart' ? btSatir(T('Ortalama oyun süresi (saat)'), T('Jumpstart dağılımının ortası: birkaç bot bunun katlarıyla, çoğu altında başlar.'),
-        btSayi(a.jumpstart_saat, v => btA('jumpstart_saat', v), { min: 1, max: 2000 })) : null),
+        btSayi(a.jumpstart_saat, v => btA('jumpstart_saat', v), { min: 1, max: 1500 })) : null),
     d.kip !== 'basit' ? h('div', { class: 'card' }, h('h2', null, icon('clock'), T('Zaman ve gelişim')),
       btSatir(T('İlerleme hızı'), T('Kazançların çarpanı: 1 gerçek oyuncu temposu.'), btKaydirac(a.hiz, v => btA('hiz', v), { min: 0.1, max: 10, step: 0.1, fmt: v => '×' + v.toFixed(1) })),
       btSatir(T('Çevrimiçi olma eğilimi'), T('Botların oyun saatlerine göre çevrimiçi olma isteği; yüksekse aynı anda daha çok bot.'),
@@ -391,7 +391,7 @@ function btGenel(d) {
       btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Oyun istemcisi ve oyun sunucusu kapalıyken OpenOrbit paneli açık kaldığı sürece botların yaşamı simüle edilir. Oyun başlatılmadan önce simülasyon durur. 0 simülasyonu kapatır; tek bir ara için sınır 150 saattir.'),
         btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 150 })),
       btSatir(T('Çevrimdışı simülasyon hızı'), T('Çevrimdışı simülasyondaki ilerleme hız çarpanı.'), 
-        btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) })),
+        btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 10, step: 0.1, fmt: v => '%' + Math.round(v * 100) })),
       d.gelisim !== 'jumpstart' ? btSatir(T('Yeni pilot kaydı (saniye)'), T('Progressive: her firmaya ortalama bu kadar saniyede bir yeni pilot kayıt olup oyuna başlar (yeni açılmış bir sunucu gibi; hepsi aynı anda doğmaz). 0: hepsi baştan kayıtlı.'),
         btSayi(a.kayit_sn ?? 15, v => btA('kayit_sn', v), { min: 0, max: 300 })) : null,
       btSatir(T('Firmaların gücü'), T('Firmanın botlarının gelişim çarpanı (1 eşit).'), h('div', { class: 'row', style: { gap: '8px' } }, btFirma.map((x, i) =>
@@ -614,7 +614,7 @@ function btBasit(d) {
       btSatir(T('Çevrimdışı simülasyon (en çok saat)'), T('Panel açıkken oyun kapalı olduğu sürece basit botlar kendi haritalarında PvE ilerlemesi yapar. 0 kapatır; tek bir ara için en çok 150 saat.'),
         btSayi(a.telafi_saat, v => btA('telafi_saat', v), { min: 0, max: 150 })),
       btSatir(T('Çevrimdışı simülasyon hızı'), T('Basit botların çevrimdışı PvE ilerleme hızı.'),
-        btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 1, step: 0.05, fmt: v => '%' + Math.round(v * 100) }))));
+        btKaydirac(a.telafi_oran, v => btA('telafi_oran', v), { min: 0, max: 10, step: 0.1, fmt: v => '%' + Math.round(v * 100) }))));
 }
 
 // botun son düşüncesi (modelin kendi notu, İngilizce); tıklayınca editörün Düşünceler ya da Hafıza bölümü (bot/ani.py, bot/ajan.py)
