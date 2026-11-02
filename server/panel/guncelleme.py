@@ -9,10 +9,10 @@ Kurulum biçimi kendiliğinden seçilir:
 Kullanıcı verisine hiç dokunulmaz (korunan(): save/, logs/, kişisel giriş şablonları, istemci klasörü, protokol sürümleri, resmî
 CDN'den inen oyun görselleri, .git).
 Değişen ve kaldırılan dosyaların eski hâli save/guncelleme/yedek_<eski sürüm>/'e taşınır (son YEDEK_SAYISI yedek). Kurulumdan sonra
-paneli yeniden başlatmak panelin işi (panel.py). Özel depo için (geliştirici) DO_GITHUB_TOKEN ortam değişkeni; belirteç yalnız
-api.github.com'a gönderilir.
+paneli yeniden başlatmak panelin işi (panel.py). Prywatny depozyt wymaga tokenu DO_GITHUB_TOKEN (fine-grained, tylko Contents: Read-only).
+Token jest używany lokalnie: do API GitHuba oraz tymczasowo w nagłówku Git dla HTTPS; nie trafia do plików repozytorium.
 """
-import io, json, os, re, shutil, subprocess, threading, time, zipfile
+import base64, io, json, os, re, shutil, subprocess, threading, time, zipfile
 import http.client
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -136,7 +136,8 @@ class Guncelleyici:
         req = Request(url, headers={'Accept': accept, 'User-Agent': 'OpenOrbit', 'X-GitHub-Api-Version': '2022-11-28'})
         tok = os.environ.get('DO_GITHUB_TOKEN')
         if tok and url.startswith(API + '/'):
-            req.add_unredirected_header('Authorization', 'Bearer ' + tok)    # yönlendirmede (codeload) gönderilmez
+            # GitHub API autoryzuje archiwum i zwraca czasowy URL codeload; token nie jest przekazywany dalej.
+            req.add_unredirected_header('Authorization', 'Bearer ' + tok)
         try:
             return self.opener(req, timeout=ZAMAN_ASIMI)
         except HTTPError as e:
@@ -176,8 +177,19 @@ class Guncelleyici:
         return {e['path'] for e in d.get('tree', []) if e.get('type') == 'blob'}
 
     # ------------------------------------------------------------ git
-    def _git(self, *args, check=True, timeout=120):
+    def _git_env(self):
+        """Token Git yapılandırmasına yalnızca süreç ortamı üzerinden eklenir; .git/config değişmez."""
         env = dict(os.environ, GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='never', LC_ALL='C')
+        tok = env.get('DO_GITHUB_TOKEN')
+        if tok:
+            raw = base64.b64encode(('x-access-token:' + tok).encode('utf8')).decode('ascii')
+            env.update(GIT_CONFIG_COUNT='1',
+                       GIT_CONFIG_KEY_0='http.https://github.com/.extraheader',
+                       GIT_CONFIG_VALUE_0='AUTHORIZATION: basic ' + raw)
+        return env
+
+    def _git(self, *args, check=True, timeout=120):
+        env = self._git_env()
         try:
             r = subprocess.run([self.git_exe, '-C', self.root] + list(args), capture_output=True, text=True, encoding='utf8',
                                errors='replace', timeout=timeout, env=env, creationflags=NO_WINDOW)
@@ -191,16 +203,16 @@ class Guncelleyici:
 
     def _git_ok(self, *args):
         """git komutu başarılı mı (çıkış kodu 0)."""
-        env = dict(os.environ, GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='never')
         try:
-            return subprocess.run([self.git_exe, '-C', self.root] + list(args), capture_output=True, timeout=60, env=env,
+            return subprocess.run([self.git_exe, '-C', self.root] + list(args), capture_output=True, timeout=60, env=self._git_env(),
                                   creationflags=NO_WINDOW).returncode == 0
         except (OSError, subprocess.TimeoutExpired):
             return False
 
     def _git_remote(self):
-        """origin'den son sürümü al -> (yerel, uzak commit). Fetch başarısızsa hata."""
-        self._git('fetch', '--quiet', 'origin', DAL)
+        """Pobierz prywatny/publiczny branch przez HTTPS bez zapisywania poświadczeń w konfiguracji repo."""
+        url = 'https://github.com/%s.git' % DEPO
+        self._git('fetch', '--quiet', url, DAL)
         return self._git('rev-parse', 'HEAD'), self._git('rev-parse', 'FETCH_HEAD')
 
     # ------------------------------------------------------------ denetim
