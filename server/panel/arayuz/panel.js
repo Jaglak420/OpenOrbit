@@ -158,8 +158,23 @@ async function api(path, body) {
   if (body !== undefined) {
     opt.method = 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body);
   }
+  // A stalled local endpoint must never leave a page on its initial spinner indefinitely.
+  const timeout = path === '/api/botlar' ? 15000 : 60000;
+  const controller = new AbortController();
+  opt.signal = controller.signal;
+  let timer;
   let r;
-  try { r = await fetch(path, opt); } catch (e) { throw new Error(T('Panele ulaşılamıyor: panel kapanmış olabilir.')); }
+  try {
+    timer = setTimeout(() => controller.abort(), timeout);
+    r = await fetch(path, opt);
+  } catch (e) {
+    if (controller.signal.aborted) throw new Error(T(path === '/api/botlar'
+      ? 'Ładowanie listy botów przekroczyło 15 sekund. Serwer panelu nie zakończył obsługi /api/botlar.'
+      : 'Żądanie do panelu przekroczyło limit czasu.'));
+    throw new Error(T('Panele ulaşılamıyor: panel kapanmış olabilir.'));
+  } finally {
+    clearTimeout(timer);
+  }
   const d = await r.json().catch(() => ({}));
   if (r.status === 403 && d.hata && d.hata !== 'host' && !api.reloading) { api.reloading = true; location.reload(); }   // panel yeniden başladı
   if (!r.ok) throw new Error(d.hata || ('HTTP ' + r.status));
