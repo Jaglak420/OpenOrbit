@@ -153,7 +153,7 @@ const firmaCls = f => ({ MMO: 'mmo', EIC: 'eic', VRU: 'vru' }[f] || '');
 const lvl = v => T('Sv') + ' ' + (v ?? '?');
 
 // ------------------------------------------------------------------ API
-async async function api(path, body) {
+async function api(path, body) {
   const opt = { headers: { 'X-Panel-Belirteci': TOKEN } };
   if (body !== undefined) {
     opt.method = 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body);
