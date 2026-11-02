@@ -1406,8 +1406,8 @@ def bot_post(path, b):
             if r.get('hata'):
                 from bot import duzenle as DZ
                 raise Hata(BT.duzenleme_hatasi(DZ.DuzenlemeHatasi(r['hata'], r.get('alan', ''))))
-            if 'ozellik' in deg:
-                BT.bot_kisilik(pid, no, deg['ozellik'])
+            if 'ozellik' in deg or 'arketip' in deg:
+                BT.bot_kisilik(pid, no, {k: deg[k] for k in ('ozellik', 'arketip') if k in deg})
             return dict(r, katalog=BT.duzenle_katalog(), canli=True)
         return dict(BT.bot_duzenle(pid, no, deg), katalog=BT.duzenle_katalog(), canli=False)
     if path == '/api/bot/llm/saglayici':          # sağlayıcı seçimi: dahili model, OpenAI, Claude ... (bot/llm_saglayici.py)
