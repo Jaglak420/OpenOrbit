@@ -813,7 +813,7 @@ async function btBotDetay(no, sekme = 'profil') {
       Object.entries(arketipler).map(([k, ad]) => h('option', { value: k }, T(ad))));
     return [kart(T('Klasa i rola bota'), 'target', h('p', { class: 'desc' }, T('Zmień profil zachowania pojedynczego pilota. Przejście na łowcę PvP zwiększa agresję i skłonność do ryzyka; postęp, wyposażenie i zasoby pozostają bez zmian.')),
       btSatir(T('Rola / archetyp'), T('Wybierz styl gry tego bota.'), rolSec)),
-      kart(T('Özellikler'), 'brain', h('p', { class: 'desc' }, T('Kadro üretilirken belirlendi; değiştirince bot buna göre karar verir (saldırgan bot PvP\\'ye, sosyal bot sohbete, tutumlu bot birikime yatkındır).')),
+      kart(T('Özellikler'), 'brain', h('p', { class: 'desc' }, T('Kadro üretilirken belirlendi; değiştirince bot buna göre karar verir (saldırgan bot PvP\'ye, sosyal bot sohbete, tutumlu bot birikime yatkındır).')),
       h('div', { class: 'bt-kisilik' }, h('div', { class: 'bt-radar-kutu' }, r.svg), h('div', { class: 'bt-ozler' }, Object.entries(BT_OZELLIK).map(ozSatir)))),
     v.var ? kart(T('Ruh hâli'), 'heart', h('p', { class: 'desc' }, T('Şu anki duyguları: zamanla dengeye döner. Öfkeli bot intikam peşine düşer, yorgun bot erken çıkar.')),
       h('div', { class: 'bt-ozler iki' }, Object.entries(BT_RUH).map(ruhSatir))) : null];
