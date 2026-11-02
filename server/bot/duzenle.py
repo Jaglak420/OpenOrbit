@@ -5,11 +5,12 @@ açıkken oyun sunucusu canlı botun k sözlüğü üzerinde, y.lock altında (p
 her açılışta kadrodan okur): kd paketin kadro satırı. Her değer doğrulanır; geçersizse DuzenlemeHatasi (kod: panel kendi dilinde
 iletir).
 """
-import time
+import random, time
 
 import harita as H
 import profil as PF
 from . import katalog as K
+from . import kisilik as KS
 from .kisilik import DUYGU_DENGE
 
 OZELLIKLER = ('saldirganlik', 'rekabet', 'sosyallik', 'sabir', 'risk', 'sadakat', 'yardimseverlik', 'konuskanlik', 'tutumluluk', 'hirs')
@@ -164,6 +165,17 @@ def uygula(k, kd, deg, cevrimici=False):
         isler.append(lambda: k.__setitem__('kargo', {}))
     if deg.get('gorev_iptal'):
         isler.append(lambda: k.__setitem__('gorev', None))
+    if 'arketip' in deg:
+        arketip = deg['arketip']
+        if arketip not in KS.ARKETIPLER:
+            raise DuzenlemeHatasi('deger', 'arketip')
+        def arketip_degistir(arketip=arketip):
+            yeni = KS.kisilik_uret(random.Random(), arketip, kd['kisilik'].get('dil', 'tr'))
+            kd['kisilik']['arketip'] = arketip
+            kd['kisilik']['ozellik'] = yeni['ozellik']
+            if k is not None:
+                k['kisilik'] = kd['kisilik']
+        isler.append(arketip_degistir)
     if 'ozellik' in deg:
         yeni = {}
         for o, v in (deg['ozellik'] or {}).items():
