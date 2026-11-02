@@ -1118,7 +1118,7 @@ async function renderGalaxyTrek() {
     });
     $('#content').replaceChildren(h('div', { class: 'stack' },
       h('div', { class: 'alert bilgi' }, icon('info'), h('div', null,
-        T('Edytujesz nagrody przyznawane po odebraniu danego progu Galaxy Trek. Identyfikator LF-5 Mortifier: equipment_weapon_laser_lf-5-mf. Zmiany zapisuj przy zatrzymanym serwerze gry; po zapisie uruchom serwer ponownie.'))),
+        T('Edytujesz nagrody przyznawane po odebraniu danego progu Galaxy Trek. Zmiany zapisuj przy zatrzymanym serwerze gry; po zapisie uruchom serwer ponownie.'))),
       ...cards,
       h('div', { class: 'row end' }, btn(T('Zapisz nagrody'), async () => {
         const saved = await act(() => api('/api/galaxy_trek', { basamaklar: stages }), T('Nagrody Galaxy Trek zapisane.'));
