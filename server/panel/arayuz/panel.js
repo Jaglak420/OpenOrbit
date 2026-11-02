@@ -1128,7 +1128,7 @@ async function renderGalaxyTrek() {
   draw();
 }
 
-function renderEtkinlikler(list) {
+async function renderEtkinlikler(list) {
   const r = list || await act(() => api('/api/etkinlikler')); if (!r || S.page !== 'etkinlikler') return;
   const set = (key, v) => act(() => api('/api/etkinlikler', { degisiklik: { [key]: v } })).then(x => x && renderEtkinlikler(x));
   const bulk = (to, tur) => act(() => api('/api/etkinlikler', { hepsi: to, tur }), T('Güncellendi.')).then(x => x && renderEtkinlikler(x));
