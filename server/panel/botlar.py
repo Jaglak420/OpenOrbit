@@ -438,7 +438,8 @@ def bot_kisilik(pid, no, ozellik):
     with _KILIT:
         d = oku(pid)
         try:
-            DZ.uygula(None, _kadro_satiri(d, no), {'ozellik': ozellik})
+            deg = ozellik if isinstance(ozellik, dict) else {'ozellik': ozellik}
+            DZ.uygula(None, _kadro_satiri(d, no), deg)
         except DZ.DuzenlemeHatasi as e:
             raise BotHatasi(duzenleme_hatasi(e)) from None
         _kaydet(pid, d)
