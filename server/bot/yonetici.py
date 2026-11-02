@@ -35,7 +35,7 @@ VARSAYILAN = {                 # paketin ayarları (panel/botlar.py aynı anahta
     'cevrimici_oran': 0.6,     # botların çevrimiçi olma eğilimi çarpanı
     'en_cok_cevrimici': 0,     # aynı anda en çok çevrimiçi (0: sınırsız)
     'telafi_saat': 150,        # istemci kapalıyken panelin simüle edeceği en çok offline saat (0: kapalı)
-    'telafi_oran': 0.35,       # offline simülasyon temposu (1: tam hız)
+    'telafi_oran': 1.0,        # offline simülasyon temposu (1: tam hız, 10: %1000)
     'kayit_sn': 15,            # progressive: her firmaya ortalama bu kadar saniyede bir yeni pilot kayıt olur (0: hepsi baştan)
     'firma_guc': [1.0, 1.0, 1.0],        # firmaların gelişim çarpanı (MMO, EIC, VRU)
     'jumpstart_saat': 60,      # jumpstart: ortalama oyun saati (dağılım lognormal)
