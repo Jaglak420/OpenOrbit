@@ -341,6 +341,8 @@ class Yonetici(SohbetMotoru):
             from . import etkinlik as ET
             ET.battle_pass(b, min(dt, 60.0))             # pass görevleri ve Season Pass oynadıkça ilerler (uyku sonrası sınırlı)
             ET.season_pass(b, min(dt, 60.0))
+            from . import ganimet as GB
+            GB.assembly(b)                                # somut/soyut oyunda malzemesi varsa bot maga önceden değil, kendisi üretir
             if b.govde is None and b.hedef is not None:
                 b.hedef.soyut(b, min(dt, 60.0), self)
 
@@ -579,6 +581,8 @@ class Yonetici(SohbetMotoru):
                     while b.yolda:
                         S.atla(b, b.yolda.pop(0), None)
                 b.hedef.soyut(b, dt, self)
+            from . import ganimet as GB
+            GB.assembly(b)                                # jumpstart ve offline telafide de aynı Assembly karar yolu
             if self.izin('magaza'):
                 for _ in range(8):           # büyük adımda biriken parayı harcar (gerçek zamanda ayrı kararlar)
                     c = ALIS.aday(b)[0]

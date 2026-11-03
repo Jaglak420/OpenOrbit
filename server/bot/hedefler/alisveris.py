@@ -146,6 +146,7 @@ def satin_al(bot, aday):
         if not dronlar[replace]:
             del dronlar[replace]
     if bot.ekle(loot):
+        bot.beceri_kazan('ekonomi', 0.5)
         return True
     if replace:
         dronlar[replace] = dronlar.get(replace, 0) + 1
@@ -188,6 +189,7 @@ def aday(bot):
     servet = para['C'] + para['U'] * KUR
     verim = lambda c: c[0] / max(1.0, ceq(c) + 0.25 * servet) * 1e5
     t = bot.o('tutumluluk')
+    ekonomi = bot.beceri('ekonomi')
     hedefi = next((c for c in tum if c[3] == bot.k.get('birikim')), None)
     if hedefi is not None:                       # kendi seçtiği biriktirme hedefi (ajanın biriktir aracı): yalnız onu alır
         if para[hedefi[1]] >= hedefi[2]:
@@ -199,7 +201,7 @@ def aday(bot):
         return max(serbest, key=lambda c: c[0], default=None), hedefi
     yetisir = [c for c in tum if para[c[1]] >= c[2] * (1 + 0.3 * t)]        # tutumlu bot biraz yedek bırakır
     g = gelir(bot)
-    ufuk = 1.0 + 1.5 * t
+    ufuk = 1.0 + 1.5 * t + 0.5 * ekonomi
     ulasir = [c for c in tum if c[2] * (1 + 0.3 * t) <= para[c[1]] + g[c[1]] * ufuk]
     hedef_c = max(ulasir, key=verim, default=None)
     # uzak biriktirme hedefi (panel, sohbet): parası yetmeyen en büyük artış
@@ -213,7 +215,9 @@ def aday(bot):
         return bot.r.choice(yetisir), birikim
     if hedef_c is None or hedef_c in yetisir:
         return max(yetisir, key=verim), birikim
-    iyi = [c for c in yetisir if verim(c) >= 0.7 * verim(hedef_c)]
+    # Doświadczony ekonomicznie bot cierpliwiej oszczędza na wyraźnie lepszą konfigurację.
+    prog = 0.7 + 0.12 * ekonomi
+    iyi = [c for c in yetisir if verim(c) >= prog * verim(hedef_c)]
     return (max(iyi, key=verim) if iyi else None), birikim
 
 

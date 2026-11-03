@@ -245,4 +245,5 @@ def assembly(bot):
         ver(bot, loot, n)
     yapilan[en] = yapilan.get(en, 0) + 1
     bot.ist('assembly')
+    bot.beceri_kazan('ekonomi', 2.0)
     return en

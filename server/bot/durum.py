@@ -45,6 +45,7 @@ class Bot:
         k.setdefault('gorev', None)
         k.setdefault('tamam', [])
         k.setdefault('kargo', {})
+        k.setdefault('beceri', {})             # kalıcı savaş, ekonomi ve hayatta kalma XP'si
         k.setdefault('stok', {'ammunition_laser_lcb-10': 1000, 'ammunition_rocket_r-310': 20})     # yeni oyuncunun cephanesi
         k.setdefault('hedef', None)
         k.setdefault('niyet', None)
@@ -118,6 +119,18 @@ class Bot:
 
     def ist(self, ad, n=1):
         self.k['istat'][ad] = self.k['istat'].get(ad, 0) + n
+
+    def beceri_kazan(self, alan, xp):
+        from . import gelisim as GL
+        return GL.kazan(self.k, alan, xp)
+
+    def beceri(self, alan):
+        from . import gelisim as GL
+        return GL.oran(self.k, alan)
+
+    def beceriler(self):
+        from . import gelisim as GL
+        return GL.ozet(self.k)
 
     def kalkan_payi(self):
         """Jeneratör yuvalarının kalkana ayrılan payı: temkinli kalkan, avcı hız sever; klan emri (klan_emir: tam kalkan, tam hız,
@@ -273,6 +286,7 @@ class Bot:
         if kredi:
             self.kazan(kredi=kredi)
             self.ist('cevher_kredi', kredi)
+            self.beceri_kazan('ekonomi', min(5.0, 1.0 + kredi / 1000000.0))
             self.olay('cevher_satti', kredi=kredi)
         return kredi
 
@@ -293,4 +307,4 @@ class Bot:
                     kredi=self.k['kredi'], uridyum=self.k['uridyum'], onur=self.k['onur'], gemi=self.k['ekip']['gemi'],
                     guc=round(d['guc'], 1), harita=K.H.name(self.harita), cevrimici=self.cevrimici, klan=self.k['klan'],
                     hedef=self.k['hedef'], somut=self.govde is not None, istat=dict(self.k['istat']), kayitli=self.kayitli,
-                    kargo=round(self.kargo_dolu(), 2))
+                    kargo=round(self.kargo_dolu(), 2), beceriler=self.beceriler())

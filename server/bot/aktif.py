@@ -214,9 +214,11 @@ def nisan(n, isabet, zor):
     from . import ekstra as EK
     b = n.bot
     cpu = next((c for c in (EK.AIM2, EK.AIM1) if EK.var(b, c)), None)
+    # Doświadczenie bojowe poprawia celność stopniowo, także bez AIM CPU.
+    isabet = min(0.98, isabet + 0.035 * b.beceri('savas'))
     if not cpu or not zor or not b.izin.get('ekstra', True) or not xenomit_harca(b, SE['nisan_cpu']['xenomit']):
         return isabet
-    return 1 - (1 - isabet) * (1 - K.ESYA['ekstralar'][cpu]['nisan'])
+    return min(0.995, 1 - (1 - isabet) * (1 - K.ESYA['ekstralar'][cpu]['nisan']))
 
 
 # ------------------------------------------------------------------------------------------------------------ karar

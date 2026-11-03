@@ -141,6 +141,7 @@ def kas(bot, dt, y, hedef_tip=None):
                 y.npc_oldurdu(bot, tip, n)
     if toplam:
         bot.ist('npc', toplam)
+        bot.beceri_kazan('savas', float(toplam))
         bot.ruh.it(moral=0.002 * toplam)
     from . import ganimet as GB, etkinlik as ET
     GB.soyut(bot, dt, y)                                 # haritanın anahtarlı kutuları
@@ -279,6 +280,7 @@ def pvp_odul(kazanan, kaybeden, y, now):
     kat = max(1, kaybeden.seviye // 2)
     hiz = y.hiz(kazanan) if y is not None else 1.0
     kazanan.odul(None, hiz, ep=oo['ep_puan'] * kat, onur=oo['onur_puan'] * kat)
+    kazanan.beceri_kazan('savas', 8.0)
     kazanan.ist('oyuncu')
     from . import toplum as TB
     kazanan.ist('oyuncu_puan', TB.gemi_rutbe_puani(kaybeden.k['ekip']['gemi']))

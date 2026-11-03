@@ -69,6 +69,25 @@ jobs:
               raise AssertionError("A mismatched friend identity must never load another profile")
           PY
 
+      - name: Exercise persistent bot skill progression
+        env:
+          PYTHONPATH: server
+        run: |
+          python - <<'PY'
+          from bot.gelisim import ALANLAR, kazan, oran, ozet, seviye
+          state = {}
+          assert set(ALANLAR) == {'savas', 'ekonomi', 'hayatta_kalma'}
+          for field in ALANLAR:
+              assert seviye(state, field) == 1
+              kazan(state, field, 100)
+              assert seviye(state, field) == 2
+              assert 0 < oran(state, field) <= 1
+          kazan(state, 'savas', 8000)
+          assert seviye(state, 'savas') == 10
+          assert ozet(state)['savas']['seviye'] == 10
+          assert kazan(state, 'unknown', 100) == 1
+          PY
+
       - name: Exercise bot account equipment upgrades
         env:
           PYTHONPATH: server

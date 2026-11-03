@@ -768,6 +768,7 @@ def npc_odulu(b, m, pay=1):
     bölünür, ganimet ve görev tam; dunya.npc_reward gibi)."""
     from . import ganimet as GB, etkinlik as ET
     GB.ek_ganimet(b, m.tip, 1)
+    b.beceri_kazan('savas', 1.0)
     ET.dusme(b, b.harita, m.tip)                         # etkinlik düşmeleri (Candy Corn …)
     y_ = YN.AKTIF
     hiz = y_.hiz(b) if y_ is not None else 1.0
@@ -945,7 +946,8 @@ def dusun(w, n, now):
         oran = (n.hp + n.shield) / max(1, d['can'] + d['kalkan'])
     # 1) tehlike: canı azaldı ve vuruluyor -> kaç
     kapida = kapi_dunyasi(w)
-    if saldiranlar and oran < 0.18 + 0.32 * (1 - b.o('risk')) and not kapida:
+    prog_kacis = 0.18 + 0.32 * (1 - b.o('risk')) + 0.06 * b.beceri('hayatta_kalma')
+    if saldiranlar and oran < prog_kacis and not kapida:
         return kac(w, n, now)
     # 2) portal yolunda
     if b.yolda and not saldiranlar and not kapida:
@@ -1116,9 +1118,38 @@ def savunma_cagri(w, n, uid, now):
         m.niyet_t = now
 
 
+def _bezpieczny_punkt(w, n, now):
+    """Bu haritadaki en yakın gerçek DMZ/peace-area noktasını bul; yoksa None."""
+    nx, ny = n.mover.pos(now)
+    if w.in_pvp_peace(nx, ny):
+        return nx, ny
+    kandydatlar = []
+    s = w.station
+    if s and s.get('type') == n.bot.firma:
+        kandydatlar.append((s['posX'], s['posY']))
+    for g in H.gates(w.map_id, n.bot.firma):
+        if g.get('ucret'):
+            continue
+        gx, gy = g['x'], g['y']
+        kandydatlar.append((gx, gy))
+        for promien in (100, 220, 360):
+            for i in range(8):
+                a = i * math.pi / 4.0
+                kandydatlar.append((gx + math.cos(a) * promien, gy + math.sin(a) * promien))
+    bezpieczne = []
+    for x, y in kandydatlar:
+        x = max(100, min(w.map_w - 100, x))
+        y = max(100, min(w.map_h - 100, y))
+        if w.in_pvp_peace(x, y):
+            bezpieczne.append((math.hypot(x - nx, y - ny), x, y))
+    if not bezpieczne:
+        return None
+    _, x, y = min(bezpieczne, key=lambda p: p[0])
+    return x, y
+
+
 def kac(w, n, now):
-    """Kaç: en yakın portala (ya da kendi üssündeyse istasyona); varınca atlayıp haritadan çıkar. Oyuncudan kaçarken arkasına
-    mayın bırakır (stokta varsa, beklemesi dolduysa; güvenli bölgede ve başlangıç haritalarında değil)."""
+    """Önce aynı haritadaki güvenli bölgeye sığınır; güvenli yer yoksa istasyon/portal kaçışı kullanır."""
     b = n.bot
     n.hedef = None
     nx, ny = n.mover.pos(now)
@@ -1128,6 +1159,19 @@ def kac(w, n, now):
         if b.o('risk') < 0.6:
             AK.gizlen(w, n, now)                         # gizlenme CPU'su
         mayin_birak(w, n, nx, ny, now)
+    guvenli = _bezpieczny_punkt(w, n, now)
+    if guvenli is not None:
+        if not getattr(n, 'siginakta', False):
+            n.siginakta = True
+            b.beceri_kazan('hayatta_kalma', 1.5)
+            b.olay('siginak', harita=H.name(w.map_id))
+        if math.hypot(guvenli[0] - nx, guvenli[1] - ny) > 90:
+            _git(w, n, guvenli[0], guvenli[1], now, esik=60)
+        else:
+            _dur(w, n, now)
+            n.next_think = now + random.uniform(2, 4)
+        return
+    n.siginakta = False
     gs = [g for g in H.gates(w.map_id, b.firma) if not g.get('ucret') and g['hedef'] in K.HARITALAR
           and K.girebilir(g['hedef'], b.firma, b.seviye)]
     s = w.station
@@ -1576,13 +1620,22 @@ def toparlan(w, n, now, d):
     if getattr(n, 'toparlaniyor', False):
         if oran >= 0.9:
             n.toparlaniyor = False
+            n.siginakta = False
+            b.beceri_kazan('hayatta_kalma', 1.0)
             return False
-    elif oran >= 0.3 + 0.3 * (1 - b.o('risk')):
+    elif oran >= 0.3 + 0.3 * (1 - b.o('risk')) + 0.06 * b.beceri('hayatta_kalma'):
         return False
     n.toparlaniyor = True
+    if not getattr(n, '_toparlanma_ogrenildi', False):
+        n._toparlanma_ogrenildi = True
+        b.beceri_kazan('hayatta_kalma', 0.5)
     n.hedef = None
     s = w.station
     nx, ny = n.mover.pos(now)
+    if getattr(n, 'siginakta', False) and w.in_pvp_peace(nx, ny):
+        _dur(w, n, now)
+        n.next_think = now + random.uniform(2, 4)
+        return True
     if s and s.get('type') == b.firma and math.hypot(s['posX'] - nx, s['posY'] - ny) < 4000:
         return dinlen(w, n, now)
     _dur(w, n, now)
